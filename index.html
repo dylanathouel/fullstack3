@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת תיאום פגישות</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     Header – מוצג רק כשמשתמש מחובר
+     ══════════════════════════════════════════════════════ -->
+<header id="app-header" class="hidden">
+    <h1>📅 מערכת תיאום פגישות</h1>
+    <div id="user-info">
+        <span id="username-display"></span>
+        <button id="logout-btn">התנתק</button>
+    </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════
+     אזור תוכן ראשי – ה-SPA מרנדר כאן את העמודים
+     ══════════════════════════════════════════════════════ -->
+<main id="main-content"></main>
+
+
+<!-- ══════════════════════════════════════════════════════
+     TEMPLATE: עמוד כניסה (#login)
+     ══════════════════════════════════════════════════════ -->
+<template id="login-template">
+    <div class="page">
+        <h2>כניסה למערכת</h2>
+
+        <div id="login-error" class="error-msg hidden"></div>
+
+        <form id="login-form" novalidate>
+            <div class="form-group">
+                <label for="login-username">שם משתמש</label>
+                <input type="text" id="login-username" placeholder="הזן שם משתמש" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="login-password">סיסמה</label>
+                <input type="password" id="login-password" placeholder="הזן סיסמה" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-primary">כניסה</button>
+        </form>
+
+        <p class="form-link">
+            אין לך חשבון? <a href="#register">הרשמה</a>
+        </p>
+        <p class="form-link" style="margin-top:0.4rem; font-size:0.82rem; color:#a0aec0;">
+            לבדיקה: <strong>demo / demo123</strong>
+        </p>
+    </div>
+</template>
+
+
+<!-- ══════════════════════════════════════════════════════
+     TEMPLATE: עמוד רישום (#register)
+     ══════════════════════════════════════════════════════ -->
+<template id="register-template">
+    <div class="page">
+        <h2>הרשמה למערכת</h2>
+
+        <div id="register-error" class="error-msg hidden"></div>
+
+        <form id="register-form" novalidate>
+            <div class="form-group">
+                <label for="reg-username">שם משתמש</label>
+                <input type="text" id="reg-username" placeholder="לפחות 3 תווים (אנגלית)" required minlength="3" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="reg-email">אימייל</label>
+                <input type="email" id="reg-email" placeholder="your@email.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="reg-password">סיסמה</label>
+                <input type="password" id="reg-password" placeholder="לפחות 6 תווים" required minlength="6" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+                <label for="reg-confirm">אימות סיסמה</label>
+                <input type="password" id="reg-confirm" placeholder="הזן סיסמה שוב" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn-primary">הרשמה</button>
+        </form>
+
+        <p class="form-link">
+            יש לך חשבון? <a href="#login">כניסה</a>
+        </p>
+    </div>
+</template>
+
+
+<!-- ══════════════════════════════════════════════════════
+     TEMPLATE: עמוד ניהול פגישות (#meetings)
+     ══════════════════════════════════════════════════════ -->
+<template id="meetings-template">
+    <div class="meetings-page">
+
+        <!-- כותרת + כפתור הוספה -->
+        <div class="page-header">
+            <h2>הפגישות שלי</h2>
+            <button id="add-meeting-btn">+ פגישה חדשה</button>
+        </div>
+
+        <!-- סרגל חיפוש וסינון -->
+        <div class="filters-bar">
+            <input type="text" id="search-input" placeholder="חיפוש לפי נושא, מיקום, משתתפים...">
+            <input type="date" id="date-filter" title="סינון לפי תאריך">
+            <button id="search-btn">חפש</button>
+            <button id="clear-filters-btn">נקה</button>
+        </div>
+
+        <!-- רשימת כרטיסיות הפגישות -->
+        <div id="meetings-list"></div>
+
+        <!-- ── Modal הוספה/עריכת פגישה ── -->
+        <div id="meeting-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 id="modal-title">פגישה חדשה</h3>
+
+                <!-- הודעת שגיאה של הטופס – מוצגת מתחת לכותרת -->
+                <div id="modal-error" class="error-msg hidden"></div>
+
+                <form id="meeting-form" novalidate>
+                    <!-- ID מוסתר – קיים בעריכה, ריק בהוספה -->
+                    <input type="hidden" id="meeting-id">
+
+                    <div class="form-group">
+                        <label for="meeting-title">נושא הפגישה *</label>
+                        <input type="text" id="meeting-title" placeholder="נושא הפגישה" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="meeting-date">תאריך * <span class="field-hint">(לא ניתן לבחור תאריך שעבר)</span></label>
+                        <input type="date" id="meeting-date" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="meeting-time">שעה *</label>
+                        <input type="time" id="meeting-time" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="meeting-location">מיקום</label>
+                        <input type="text" id="meeting-location" placeholder="כתובת / חדר / קישור Zoom...">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="meeting-participants">משתתפים * <span class="field-hint">(לפחות 2, מופרדים בפסיקים)</span></label>
+                        <input type="text" id="meeting-participants" placeholder="למשל: דוד כהן, שרה לוי, ישראל ישראלי" required>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-save">שמור</button>
+                        <button type="button" id="cancel-modal">ביטול</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- ── סוף Modal ── -->
+
+    </div>
+</template>
+
+
+<!-- ══════════════════════════════════════════════════════
+     Loading – בר עדין בראש הדף, לא חוסם את המשתמש
+     ══════════════════════════════════════════════════════ -->
+<div id="loading" class="hidden"></div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast hidden"></div>
+
+
+<!-- ══════════════════════════════════════════════════════
+     טעינת סקריפטים – סדר הטעינה חשוב!
+     1. נתוני seed
+     2. FAJAX (תלוי ב-Network)
+     3. Network (תלוי ב-FAJAX)
+     4. מאגרי מידע DB (תלויים בשרתים)
+     5. שרתים (תלויים ב-DB ו-Network)
+     6. SPA Router
+     7. App – הלוגיקה הראשית, תלויה בכולם
+     ══════════════════════════════════════════════════════ -->
+<script src="js/fajax.js"></script>
+<script src="js/network.js"></script>
+<script src="js/users-db.js"></script>
+<script src="js/meetings-db.js"></script>
+<script src="js/auth-server.js"></script>
+<script src="js/data-server.js"></script>
+<script src="js/spa.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
