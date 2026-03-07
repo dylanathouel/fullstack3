@@ -136,7 +136,7 @@ const App = (() => {
     ══════════════════════════════════════════ */
 
     /**
-     * _fajaxRequest – יוצר ושולח בקשת FAJAX לשרת.
+     * _fajaxRequest – יוצר ושולח בקשת לשרת.
      * תומך בניסיון חוזר (retry) במקרה של שגיאת רשת (הודעה שנופלת).
      * מטפל אוטומטית בתגובת 401 (session פג תוקפו).
      *
@@ -157,15 +157,17 @@ const App = (() => {
         const xhr = new FXMLHttpRequest();
         xhr.open(method, url);
 
+        // הוספת תאימות נדרשת בשליחה לשרת
         if (token)  xhr.setRequestHeader('Authorization', token);
         if (data)   xhr.setRequestHeader('Content-Type', 'application/json');
 
         // ─── onload: מגיע כשהשרת שלח תגובה (בכל status) ─────────────────
+        // מימוש אירוע מוגדר במערכת
         xhr.onload = () => {
             _hideLoading();
             const response = JSON.parse(xhr.responseText);
 
-            // session פג תוקפו – ניקוי והפניה לדף כניסה
+            // (מקרה די נדיר בפרויקט שלנו) session פג תוקפו – ניקוי והפניה לדף כניסה
             if (xhr.status === 401 && url.startsWith('/api')) {
                 _clearSession();
                 _updateHeader();
@@ -183,9 +185,10 @@ const App = (() => {
         };
 
         // ─── onerror: מגיע כשהרשת השמיטה את ההודעה ──────────────────────
+        // מימוש אירוע מוגדר במערכת
         xhr.onerror = () => {
             if (retries > 0) {
-                console.warn(`[App] Network drop on ${method} ${url} – retrying (${retries} left)`);
+                console.log(`[App] Network drop on ${method} ${url} – retrying (${retries} left)`);
                 _showToast(`📡 שגיאת רשת – מנסה שוב... (${retries} נסיון${retries > 1 ? 'ות' : ''} נותר${retries > 1 ? 'ות' : ''})`, 'retry');
                 _fajaxRequest({ method, url, data, token, onSuccess, onError, onNetworkError, retries: retries - 1, _isRetry: true });
             } else {
@@ -194,7 +197,8 @@ const App = (() => {
                 if (typeof onNetworkError === 'function') onNetworkError();
             }
         };
-
+        
+        // שליחת הבקשה בפועל
         xhr.send(data ? JSON.stringify(data) : null);
     }
 
@@ -222,6 +226,7 @@ const App = (() => {
                 return;
             }
 
+            // קריאה לפונקציה שאחראית לשלוח בקשות לשרת
             _fajaxRequest({
                 method:   'POST',
                 url:      '/auth/login',
@@ -249,7 +254,10 @@ const App = (() => {
         if (!form) return;
 
         form.addEventListener('submit', e => {
+            // ביטול התנהגות ברירת המחדל של הטופס (שליחה וטעינה מחדש של הדף) על מנת לאפשר שימוש ב SPA ו-FAJAX
             e.preventDefault();
+
+            // הסתרת הודעות שגיאה קודמות בכל ניסיון רישום חדש
             _hideError('register-error');
 
             const username = document.getElementById('reg-username').value.trim();
@@ -327,6 +335,7 @@ const App = (() => {
 
         list.innerHTML = meetings.map(m => {
             const past = _isPast(m);
+            // data-id - תג המשמש לצורך זיהוי פנימי כאן משמש לזיהוי הפגישה בעת לחיצה על כפתור עריכה/מחיקה
             return `
             <div class="meeting-card ${past ? 'past' : 'upcoming'}" data-id="${m.id}">
                 <div class="card-header">
@@ -366,6 +375,7 @@ const App = (() => {
      */
     function _loadMeetings(search = '', date = '') {
         let url = '/api/meetings';
+        //השתמשנו פה בקטנה במשהו שלא נלמד, הURLSearchParams נועד לנקות את הערכים בגישה לשרת, עשינו את זה כדי לשמור על רמה גבוה אבל בפועל הכל עובד גם בלי זה
         const params = new URLSearchParams();
         if (search) params.set('search', search);
         if (date)   params.set('date',   date);
@@ -392,7 +402,6 @@ const App = (() => {
         if (!el) return;
         el.textContent = message;
         el.classList.remove('hidden');
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     /**
@@ -574,11 +583,11 @@ const App = (() => {
         const addBtn = document.getElementById('add-meeting-btn');
         if (addBtn) addBtn.addEventListener('click', () => _openModal());
 
-        // כפתור ביטול modal
+        // כפתור ביטול modal שייך לתצוגה של הוספת/עריכת פגישה
         const cancelBtn = document.getElementById('cancel-modal');
         if (cancelBtn) cancelBtn.addEventListener('click', _closeModal);
 
-        // סגירת modal בלחיצה מחוץ לתוכן
+        // מאפשר סגירה של חלון העריכה/הוספה בלחיצה מחוץ לחלון
         const modal = document.getElementById('meeting-modal');
         if (modal) {
             modal.addEventListener('click', e => {
@@ -591,8 +600,8 @@ const App = (() => {
         if (form) form.addEventListener('submit', _handleMeetingFormSubmit);
 
         // חיפוש חופשי
-        const searchBtn   = document.getElementById('search-btn');
         const searchInput = document.getElementById('search-input');
+        const searchBtn   = document.getElementById('search-btn');
         const dateInput   = document.getElementById('date-filter');
         const clearBtn    = document.getElementById('clear-filters-btn');
 
@@ -604,6 +613,9 @@ const App = (() => {
         if (searchInput) {
             searchInput.addEventListener('keypress', e => {
                 if (e.key === 'Enter') searchBtn.click();
+            });
+            searchInput.addEventListener('blur', () => {
+            searchBtn.click();
             });
         }
 
@@ -632,32 +644,23 @@ const App = (() => {
      * _handleLogout – מתנתק מהשרת, מנקה session ומנווט לדף כניסה.
      * גם אם הבקשה נכשלת ברשת – מנקה את ה-session המקומי.
      */
-    function _handleLogout() {
-        _fajaxRequest({
-            method: 'POST',
-            url:    '/auth/logout',
-            token:  sessionToken,
-            onSuccess: () => {
-                _clearSession();
-                _updateHeader();
-                SPA.resetRoute();
-                SPA.navigateTo('login');
-            },
-            onError: () => {
-                _clearSession();
-                _updateHeader();
-                SPA.resetRoute();
-                SPA.navigateTo('login');
-            },
-            onNetworkError: () => {
-                // גם כשהרשת נופלת – מנתקים מקומית
-                _clearSession();
-                _updateHeader();
-                SPA.resetRoute();
-                SPA.navigateTo('login');
-            }
-        });
-    }
+function _handleLogout() {
+    const logoutCleanup = () => {
+        _clearSession();
+        _updateHeader();
+        SPA.resetRoute();
+        SPA.navigateTo('login');
+    };
+    // נרצה לאפשר ניקוי של ה-session בכל מקרה של התנתקות
+    _fajaxRequest({
+        method: 'POST',
+        url:    '/auth/logout',
+        token:  sessionToken,
+        onSuccess: logoutCleanup,
+        onError: logoutCleanup,
+        onNetworkError: logoutCleanup
+    });
+}
 
     /* ══════════════════════════════════════════
        אתחול ראשי
@@ -668,15 +671,12 @@ const App = (() => {
      * נקרא פעם אחת לאחר טעינת ה-DOM.
      */
     function init() {
-        // 1. אתחול מאגרי המידע עם נתוני seed
-        UsersDB.init();
-        MeetingsDB.init();
 
-        // 2. רישום שרתים ברשת התקשורת
+        // 1. רישום שתי שרתים ברשת התקשורת
         AuthServer.register();
         DataServer.register();
 
-        // 3. הגדרת routes ב-SPA
+        // 2. הגדרת routes ב-SPA
         //    login – guard: אם כבר מחובר, עבור ישירות לפגישות
         SPA.addRoute(
             'login',
@@ -704,7 +704,7 @@ const App = (() => {
             () => SPA.navigateTo('login')
         );
 
-        // 4. שחזור session קיים מ-sessionStorage (לאחר רענון דף)
+        // 3. שחזור session קיים מ-sessionStorage (לאחר רענון דף)
         //    _loadSession משחזר את currentUser ו-sessionToken מהדפדפן,
         //    אך activeSessions ב-AuthServer מתאפס בכל רענון (זיכרון JS בלבד).
         //    restoreSession רושם מחדש את הטוקן ב-AuthServer כדי שהבקשות יאומתו.
@@ -714,11 +714,11 @@ const App = (() => {
         }
         _updateHeader();
 
-        // 5. כפתור התנתקות בראש הדף
+        // 4. כפתור התנתקות בראש הדף
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) logoutBtn.addEventListener('click', _handleLogout);
 
-        // 6. הפעלת מנגנון הניתוב
+        // 5. הפעלת מנגנון הניתוב
         SPA.init();
     }
 

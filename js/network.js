@@ -8,11 +8,9 @@
 const Network = (() => {
 
     /* ─── קבועי הגדרה ─── */
-    // כדי להפעיל השהיה בעתיד: שנה ל-1000 ו-3000
-    const MIN_DELAY = 1000;      // השהיה מינימלית (0 = מיידי)
-    const MAX_DELAY = 3000;      // השהיה מקסימלית (0 = מיידי)
-    // כדי להפעיל השמטה בעתיד: שנה לערך בין 0.1 ל-0.5
-    const DROP_RATE = 0.2;      // הסתברות השמטה (0 = ללא השמטה)
+    const MIN_DELAY = 0;      // השהיה מינימלית (0 = מיידי)
+    const MAX_DELAY = 0;      // השהיה מקסימלית (0 = מיידי)
+    const DROP_RATE = 0;      // הסתברות השמטה (0 = ללא השמטה)
 
     /* ─── טבלת ניתוב ─── */
     // ממפה prefix של URL (מחרוזת) לאובייקט השרת המטפל בו
@@ -61,11 +59,11 @@ const Network = (() => {
         const delay = _randomDelay();
         setTimeout(() => {
             if (_isDropped()) {
-                console.warn(`[Network] ↓ Response DROPPED  (${fxhr.method} ${fxhr.url})`);
+                console.log(`[Network] ↓ Response DROPPED  (${fxhr.method} ${fxhr.url})`);
                 fxhr._handleNetworkError();
                 return;
             }
-            console.info(`[Network] ↓ Response OK  status=${responseObj.status}  (${fxhr.method} ${fxhr.url})`);
+            console.log(`[Network] ↓ Response OK  status=${responseObj.status}  (${fxhr.method} ${fxhr.url})`);
             fxhr._handleResponse(responseObj);
         }, delay);
     }
@@ -81,7 +79,7 @@ const Network = (() => {
          */
         register(urlPrefix, server) {
             routingTable[urlPrefix] = server;
-            console.info(`[Network] Registered server for prefix: ${urlPrefix}`);
+            console.log(`[Network] Registered server for prefix: ${urlPrefix}`);
         },
 
         /**
@@ -91,11 +89,11 @@ const Network = (() => {
          */
         transmit(fxhr) {
             const delay = _randomDelay();
-            console.info(`[Network] ↑ Transmitting  (${fxhr.method} ${fxhr.url})`);
+            console.log(`[Network] ↑ Transmitting  (${fxhr.method} ${fxhr.url})`);
 
             setTimeout(() => {
                 if (_isDropped()) {
-                    console.warn(`[Network] ↑ Request DROPPED  (${fxhr.method} ${fxhr.url})`);
+                    console.log(`[Network] ↑ Request DROPPED  (${fxhr.method} ${fxhr.url})`);
                     fxhr._handleNetworkError();
                     return;
                 }

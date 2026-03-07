@@ -55,7 +55,7 @@ const UsersDB = (() => {
         init(seedUsers = []) {
             if (!localStorage.getItem(STORAGE_KEY)) {
                 _saveAll(seedUsers);
-                console.info('[UsersDB] Initialized with seed data.');
+                console.log('[UsersDB] Initialized with seed data.');
             }
         },
 

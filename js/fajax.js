@@ -17,14 +17,14 @@ class FXMLHttpRequest {
 
     /* בנאי – מאתחל את כל השדות לערכי ברירת מחדל */
     constructor() {
-        this.method      = null;   // מתודת HTTP (GET / POST / PUT / DELETE)
-        this.url         = null;   // כתובת היעד
-        this.data        = null;   // גוף הבקשה (string JSON)
-        this.status      = null;   // קוד תגובה HTTP שהתקבל מהשרת
+        this.method       = null;   // מתודת HTTP (GET / POST / PUT / DELETE)
+        this.url          = null;   // כתובת היעד
+        this.data         = null;   // גוף הבקשה (string JSON)
+        this.status       = null;   // קוד תגובה HTTP שהתקבל מהשרת
         this.responseText = null;  // גוף התגובה כ-string JSON
-        this.onload      = null;   // callback – נקרא כשמתקבלת תגובה מהשרת
-        this.onerror     = null;   // callback – נקרא כשהרשת מפילה את ההודעה
-        this._headers    = {};     // כותרות הבקשה (Authorization, Content-Type, ...)
+        this.onload       = null;   // callback – נקרא כשמתקבלת תגובה מהשרת
+        this.onerror      = null;   // callback – נקרא כשהרשת מפילה את ההודעה
+        this._headers     = {};     // כותרות הבקשה (Authorization, Content-Type, ...)
     }
 
     /**

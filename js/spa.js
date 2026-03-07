@@ -49,6 +49,7 @@ const SPA = (() => {
         if (currentRoute === hash) return;
 
         // בדיקת guard לפני רינדור ה-template
+        // guard זה בעצם "שומר סף" שממוש על יד פונקציה שמחזירה true/false לפי תנאי הרשאה (למשל: האם המשתמש מחובר)    
         if (typeof route.guard === 'function' && !route.guard()) {
             if (typeof route.onGuardFail === 'function') route.onGuardFail();
             return;  // currentRoute לא מתעדכן – נשמר הערך הקודם

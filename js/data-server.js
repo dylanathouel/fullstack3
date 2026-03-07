@@ -81,6 +81,7 @@ const DataServer = (() => {
         const now      = new Date();
         const todayStr = [
             now.getFullYear(),
+            // מוסיפים ספרות של אפסים כדי להשלים בלכ השדות ל-2 תווים
             String(now.getMonth() + 1).padStart(2, '0'),
             String(now.getDate()).padStart(2, '0')
         ].join('-');
@@ -182,6 +183,7 @@ const DataServer = (() => {
         const body       = JSON.parse(fxhr.data || '{}');
         // מיזוג נתונים קיימים עם העדכון לצורך ולידציה מלאה
         const merged     = { ...existing, ...body };
+        
         const validation = _validateMeeting(merged);
 
         if (!validation.valid) {

@@ -58,7 +58,7 @@ const MeetingsDB = (() => {
         init(seedMeetings = []) {
             if (!localStorage.getItem(STORAGE_KEY)) {
                 _saveAll(seedMeetings);
-                console.info('[MeetingsDB] Initialized with seed data.');
+                console.log('[MeetingsDB] Initialized with seed data.');
             }
         },
 
@@ -133,6 +133,7 @@ const MeetingsDB = (() => {
             const newMeeting = {
                 ...meetingData,
                 id:        _generateId(),
+                // תאריך יצירה אוטומטי בפורמט המתאים לזמן זולו (UTC)
                 createdAt: new Date().toISOString()
             };
             meetings.push(newMeeting);

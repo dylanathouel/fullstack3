@@ -121,6 +121,7 @@ const AuthServer = (() => {
     function _handleLogout(fxhr, sendResponse) {
         const token = fxhr._headers['Authorization'];
         if (token && activeSessions[token]) {
+            // מחק את המאפיין הטוקן כדי לבטל את ה-session
             delete activeSessions[token];
         }
         sendResponse(fxhr, { status: 200, body: { message: 'התנתקת בהצלחה' } });
