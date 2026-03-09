@@ -30,7 +30,6 @@ const UsersDB = (() => {
 
     /**
      * _saveAll – שומר מערך משתמשים מעודכן ב-LocalStorage.
-     * @param {Array} users
      */
     function _saveAll(users) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
@@ -50,7 +49,6 @@ const UsersDB = (() => {
         /**
          * init – מאתחל את המאגר עם נתוני seed אם הוא עדיין ריק.
          * נקרא פעם אחת בטעינת האפליקציה.
-         * @param {Array} seedUsers – מערך משתמשי ברירת מחדל
          */
         init(seedUsers = []) {
             if (!localStorage.getItem(STORAGE_KEY)) {
@@ -61,7 +59,6 @@ const UsersDB = (() => {
 
         /**
          * getById – שולף משתמש לפי ID.
-         * @param {string} id
          * @returns {object|null}
          */
         getById(id) {
@@ -70,7 +67,6 @@ const UsersDB = (() => {
 
         /**
          * getByUsername – שולף משתמש לפי שם משתמש (case-sensitive).
-         * @param {string} username
          * @returns {object|null}
          */
         getByUsername(username) {
@@ -79,7 +75,6 @@ const UsersDB = (() => {
 
         /**
          * usernameExists – בודק אם שם משתמש כבר תפוס.
-         * @param {string} username
          * @returns {boolean}
          */
         usernameExists(username) {
@@ -89,7 +84,6 @@ const UsersDB = (() => {
         /**
          * add – מוסיף משתמש חדש למאגר.
          * מוסיף שדות id ו-createdAt אוטומטית.
-         * @param {{ username, email, password }} userData
          * @returns {object} המשתמש החדש עם ה-ID שנוצר
          */
         add(userData) {
@@ -106,8 +100,6 @@ const UsersDB = (() => {
 
         /**
          * update – מעדכן שדות של משתמש קיים לפי ID.
-         * @param {string} id
-         * @param {object} updates – שדות לעדכון
          * @returns {object|null} המשתמש המעודכן, או null אם לא נמצא
          */
         update(id, updates) {
@@ -121,7 +113,6 @@ const UsersDB = (() => {
 
         /**
          * delete – מוחק משתמש לפי ID.
-         * @param {string} id
          * @returns {boolean} true אם נמחק, false אם לא נמצא
          */
         delete(id) {

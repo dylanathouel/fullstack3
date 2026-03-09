@@ -18,7 +18,6 @@ const SPA = (() => {
 
     /**
      * _loadTemplate – מעתיק תוכן של <template> מה-DOM ומחזיר צומת מוכן להכנסה.
-     * @param {string} templateId – ה-id של אלמנט <template> בדף
      * @returns {DocumentFragment|null}
      */
     function _loadTemplate(templateId) {
@@ -71,11 +70,6 @@ const SPA = (() => {
 
         /**
          * addRoute – מוסיף הגדרת route למנגנון הניתוב.
-         * @param {string}   hash        – ה-hash של ה-route (בלי #)
-         * @param {string}   templateId  – id של <template> בדף
-         * @param {Function} onEnter     – פונקציה שתופעל לאחר הרינדור
-         * @param {Function} [guard]     – אם מוגדר, נבדק לפני הרינדור (חייב להחזיר boolean)
-         * @param {Function} [onGuardFail] – מופעל אם ה-guard נכשל (לרוב ניווט לדף אחר)
          */
         addRoute(hash, templateId, onEnter, guard, onGuardFail) {
             routes[hash] = { templateId, onEnter, guard, onGuardFail };
@@ -83,7 +77,6 @@ const SPA = (() => {
 
         /**
          * navigateTo – מנווט לדף על-ידי שינוי ה-hash ב-URL.
-         * @param {string} hash
          */
         navigateTo(hash) {
             window.location.hash = hash;

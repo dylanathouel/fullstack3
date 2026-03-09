@@ -33,7 +33,6 @@ const MeetingsDB = (() => {
 
     /**
      * _saveAll – שומר מערך פגישות מעודכן ב-LocalStorage.
-     * @param {Array} meetings
      */
     function _saveAll(meetings) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(meetings));
@@ -53,7 +52,6 @@ const MeetingsDB = (() => {
         /**
          * init – מאתחל את המאגר עם נתוני seed אם הוא עדיין ריק.
          * נקרא פעם אחת בטעינת האפליקציה.
-         * @param {Array} seedMeetings
          */
         init(seedMeetings = []) {
             if (!localStorage.getItem(STORAGE_KEY)) {
@@ -65,7 +63,6 @@ const MeetingsDB = (() => {
         /**
          * getAllByUser – שולף את כל הפגישות של משתמש מסוים,
          * ממוינות לפי תאריך ושעה (עולה).
-         * @param {string} userId
          * @returns {Array}
          */
         getAllByUser(userId) {
@@ -80,7 +77,6 @@ const MeetingsDB = (() => {
 
         /**
          * getById – שולף פגישה ספציפית לפי ID.
-         * @param {string} id
          * @returns {object|null}
          */
         getById(id) {
@@ -90,8 +86,6 @@ const MeetingsDB = (() => {
         /**
          * search – מחפש פגישות של משתמש לפי מחרוזת חופשית.
          * מחפש בשדות: נושא, מיקום, משתתפים.
-         * @param {string} userId
-         * @param {string} query
          * @returns {Array}
          */
         search(userId, query) {
@@ -113,8 +107,6 @@ const MeetingsDB = (() => {
 
         /**
          * filterByDate – מחזיר פגישות של משתמש בתאריך מסוים.
-         * @param {string} userId
-         * @param {string} date – בפורמט YYYY-MM-DD
          * @returns {Array}
          */
         filterByDate(userId, date) {
@@ -125,7 +117,6 @@ const MeetingsDB = (() => {
 
         /**
          * add – מוסיף פגישה חדשה למאגר.
-         * @param {object} meetingData – נתוני הפגישה (ללא id ו-createdAt)
          * @returns {object} הפגישה החדשה עם ה-ID שנוצר
          */
         add(meetingData) {
@@ -143,8 +134,6 @@ const MeetingsDB = (() => {
 
         /**
          * update – מעדכן שדות של פגישה קיימת לפי ID.
-         * @param {string} id
-         * @param {object} updates
          * @returns {object|null} הפגישה המעודכנת, או null אם לא נמצאה
          */
         update(id, updates) {
@@ -162,7 +151,6 @@ const MeetingsDB = (() => {
 
         /**
          * delete – מוחק פגישה לפי ID.
-         * @param {string} id
          * @returns {boolean}
          */
         delete(id) {

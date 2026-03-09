@@ -20,7 +20,6 @@ const DataServer = (() => {
 
     /**
      * _authorize – מחלץ ומאמת טוקן מכותרות הבקשה.
-     * @param {FXMLHttpRequest} fxhr
      * @returns {string|null} userId אם מורשה, null אחרת
      */
     function _authorize(fxhr) {
@@ -31,7 +30,6 @@ const DataServer = (() => {
 
     /**
      * _extractId – מחלץ ID מ-URL בפורמט /api/meetings/:id.
-     * @param {string} urlBase – URL ללא query string
      * @returns {string|null} ID אם קיים, null אם ה-URL הוא /api/meetings
      */
     function _extractId(urlBase) {
@@ -42,7 +40,6 @@ const DataServer = (() => {
 
     /**
      * _parseQuery – מחלץ פרמטרים מ-query string של ה-URL.
-     * @param {string} url
      * @returns {URLSearchParams}
      */
     function _parseQuery(url) {
@@ -57,7 +54,6 @@ const DataServer = (() => {
      *   – פורמט תאריך ושעה תקין
      *   – תאריך לא בעבר
      *   – לפחות 2 משתתפים
-     * @param {object} data
      * @returns {{ valid: boolean, message?: string }}
      */
     function _validateMeeting(data) {
@@ -230,8 +226,6 @@ const DataServer = (() => {
         /**
          * handleRequest – נקודת הכניסה הראשית של שרת הנתונים.
          * מאמת טוקן ומנתב לפי method ו-URL.
-         * @param {FXMLHttpRequest} fxhr
-         * @param {Function} sendResponse
          */
         handleRequest(fxhr, sendResponse) {
             // בדיקת הרשאה – כל בקשה דורשת טוקן תקף

@@ -47,7 +47,6 @@ class FXMLHttpRequest {
     /**
      * send – שולח את הבקשה לרשת התקשורת המדומה.
      * אחרי קריאה זו הבקשה "עוזבת" את הלקוח; התגובה תגיע דרך onload / onerror.
-     * @param {string|null} data – גוף הבקשה כ-JSON string (אופציונלי)
      */
     send(data = null) {
         if (data !== null) {
@@ -61,7 +60,6 @@ class FXMLHttpRequest {
      * _handleResponse – מטופל על-ידי הרשת כשהתגובה מגיעה מהשרת.
      * מעדכן status ו-responseText ומפעיל את callback המתאים.
      * (מתודה פנימית – אין לקרוא לה ישירות מקוד לקוח)
-     * @param {{ status: number, body: object }} responseObj
      */
     _handleResponse(responseObj) {
         this.status       = responseObj.status;

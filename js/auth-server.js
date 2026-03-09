@@ -33,8 +33,6 @@ const AuthServer = (() => {
 
     /**
      * _authenticate – בודק שם משתמש וסיסמה מול UsersDB.
-     * @param {string} username
-     * @param {string} password
      * @returns {object|null} אובייקט המשתמש אם תקין, null אחרת
      */
     function _authenticate(username, password) {
@@ -45,7 +43,6 @@ const AuthServer = (() => {
 
     /**
      * _validateRegistration – בודק תקינות נתוני רישום.
-     * @param {{ username, email, password }} data
      * @returns {{ valid: boolean, message?: string }}
      */
     function _validateRegistration(data) {
@@ -140,7 +137,6 @@ const AuthServer = (() => {
         /**
          * validateToken – בודק אם טוקן קיים ותקף.
          * משמש את DataServer לאימות כל בקשה נכנסת.
-         * @param {string} token
          * @returns {string|null} userId אם הטוקן תקף, null אחרת
          */
         validateToken(token) {
@@ -152,8 +148,6 @@ const AuthServer = (() => {
          * נקרא על-ידי App כאשר נמצא טוקן תקף ב-sessionStorage.
          * ללא קריאה זו, activeSessions יהיה ריק אחרי רענון ו-validateToken
          * יחזיר null למרות שהטוקן עדיין שמור בדפדפן.
-         * @param {string} token
-         * @param {string} userId
          */
         restoreSession(token, userId) {
             activeSessions[token] = userId;
@@ -162,8 +156,6 @@ const AuthServer = (() => {
         /**
          * handleRequest – נקודת הכניסה הראשית של השרת.
          * מנתב בקשות נכנסות (מה-Network) לפונקציית הטיפול המתאימה.
-         * @param {FXMLHttpRequest} fxhr
-         * @param {Function} sendResponse – פונקציה שמחזירה תגובה ללקוח דרך הרשת
          */
         handleRequest(fxhr, sendResponse) {
             const { url, method } = fxhr;

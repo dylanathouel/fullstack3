@@ -15,9 +15,10 @@ const App = (() => {
     /* ══════════════════════════════════════════
        מצב האפליקציה
     ══════════════════════════════════════════ */
-    let currentUser   = null;   // אובייקט המשתמש הנוכחי (ללא סיסמה)
-    let sessionToken  = null;   // טוקן ה-session הפעיל
-    let _loadingCount = 0;      // מונה בקשות פעילות (למניעת הסרה מוקדמת של Loading)
+    let currentUser    = null;   // אובייקט המשתמש הנוכחי (ללא סיסמה)
+    let sessionToken   = null;   // טוקן ה-session הפעיל
+    let _loadingCount  = 0;      // מונה בקשות פעילות (למניעת הסרה מוקדמת של Loading)
+    let _meetingsReqSeq = 0;     // מונה סידורי לבקשות טעינת פגישות – מגן מפני Race Condition
 
     /* ══════════════════════════════════════════
        ניהול Session
@@ -83,8 +84,6 @@ const App = (() => {
 
     /**
      * _showError – מציג הודעת שגיאה באלמנט מסוים.
-     * @param {string} elementId
-     * @param {string} message
      */
     function _showError(elementId, message) {
         const el = document.getElementById(elementId);
@@ -95,7 +94,6 @@ const App = (() => {
 
     /**
      * _hideError – מסתיר הודעת שגיאה.
-     * @param {string} elementId
      */
     function _hideError(elementId) {
         const el = document.getElementById(elementId);
@@ -104,8 +102,6 @@ const App = (() => {
 
     /**
      * _showToast – מציג הודעת Toast זמנית בתחתית המסך.
-     * @param {string} message
-     * @param {'success'|'error'} type
      */
     function _showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
@@ -140,16 +136,6 @@ const App = (() => {
      * תומך בניסיון חוזר (retry) במקרה של שגיאת רשת (הודעה שנופלת).
      * מטפל אוטומטית בתגובת 401 (session פג תוקפו).
      *
-     * @param {object} opts
-     * @param {string}   opts.method          – GET / POST / PUT / DELETE
-     * @param {string}   opts.url             – URL של הבקשה
-     * @param {object}   [opts.data]          – גוף הבקשה (יומר ל-JSON)
-     * @param {string}   [opts.token]         – טוקן Authorization
-     * @param {Function} [opts.onSuccess]     – נקרא עם גוף התגובה אם status 2xx
-     * @param {Function} [opts.onError]       – נקרא עם הודעת שגיאה אם status 4xx/5xx
-     * @param {Function} [opts.onNetworkError]– נקרא אחרי מיצוי כל הניסיונות
-     * @param {number}   [opts.retries=2]     – מספר ניסיונות חוזרים במקרה של השמטה
-     * @param {boolean}  [opts._isRetry]      – פנימי: האם זה ניסיון חוזר
      */
     function _fajaxRequest({ method, url, data, token, onSuccess, onError, onNetworkError, retries = 2, _isRetry = false }) {
         if (!_isRetry) _showLoading();
@@ -291,7 +277,6 @@ const App = (() => {
 
     /**
      * _formatDate – ממיר תאריך מפורמט YYYY-MM-DD לפורמט DD/MM/YYYY.
-     * @param {string} dateStr
      * @returns {string}
      */
     function _formatDate(dateStr) {
@@ -302,7 +287,6 @@ const App = (() => {
 
     /**
      * _formatTime – מציג שעה בפורמט HH:MM (כבר בפורמט הנכון).
-     * @param {string} timeStr
      * @returns {string}
      */
     function _formatTime(timeStr) {
@@ -311,7 +295,6 @@ const App = (() => {
 
     /**
      * _isPast – בודק אם פגישה כבר עברה (לפי תאריך ושעה).
-     * @param {object} meeting
      * @returns {boolean}
      */
     function _isPast(meeting) {
@@ -322,7 +305,6 @@ const App = (() => {
 
     /**
      * _renderMeetings – מרנדר את רשימת הפגישות בדף כרטיסיות.
-     * @param {Array} meetings
      */
     function _renderMeetings(meetings) {
         const list = document.getElementById('meetings-list');
@@ -370,8 +352,6 @@ const App = (() => {
 
     /**
      * _loadMeetings – טוען פגישות מהשרת עם אפשרות חיפוש וסינון תאריך.
-     * @param {string} [search='']   – מחרוזת חיפוש חופשי
-     * @param {string} [date='']     – תאריך לסינון (YYYY-MM-DD)
      */
     function _loadMeetings(search = '', date = '') {
         let url = '/api/meetings';
@@ -381,11 +361,21 @@ const App = (() => {
         if (date)   params.set('date',   date);
         if ([...params].length > 0) url += '?' + params.toString();
 
+        // מונה סידורי: כל קריאה ל-_loadMeetings מקבלת מספר עולה.
+        // כשהתגובה מגיעה, בודקים שהיא שייכת לבקשה ה-אחרונה.
+        // אם בינתיים נשלחה בקשה חדשה יותר – משליכים את התגובה הישנה (Race Condition).
+        const seq = ++_meetingsReqSeq;
+
         _fajaxRequest({
             method:  'GET',
             url,
             token:   sessionToken,
-            onSuccess:     res => _renderMeetings(res.meetings),
+            onSuccess: res => {
+                // מתעלמים מתגובות של בקשות ישנות שהגיעו אחרי בקשה חדשה יותר
+                if (seq < _meetingsReqSeq) return;
+                _renderMeetings(res.meetings);
+                _renderCalendar(res.meetings);
+            },
             onError:       msg => _showToast('שגיאה בטעינת פגישות: ' + msg, 'error'),
             onNetworkError: () => _showToast('שגיאת רשת – נסה שוב', 'error')
         });
@@ -395,7 +385,6 @@ const App = (() => {
 
     /**
      * _showModalError – מציג הודעת שגיאה בתוך ה-modal מעל הטופס.
-     * @param {string} message
      */
     function _showModalError(message) {
         const el = document.getElementById('modal-error');
@@ -415,7 +404,6 @@ const App = (() => {
     /**
      * _validateMeetingForm – בודק תקינות נתוני הטופס בצד הלקוח לפני שליחה לשרת.
      * בודק: שדות חובה, תאריך לא בעבר, אם היום – שעה לא בעבר, לפחות 2 משתתפים.
-     * @param {object} data – ערכי הטופס
      * @returns {{ valid: boolean, message?: string }}
      */
     function _validateMeetingForm(data) {
@@ -466,7 +454,6 @@ const App = (() => {
 
     /**
      * _openModal – פותח את ה-modal להוספה/עריכת פגישה.
-     * @param {object|null} meeting – null להוספה, אובייקט לעריכה
      */
     function _openModal(meeting = null) {
         const modal = document.getElementById('meeting-modal');
@@ -500,7 +487,6 @@ const App = (() => {
 
     /**
      * _openEditModal – שולף פגישה מהשרת ואחר-כך פותח את ה-modal בעריכה.
-     * @param {string} id
      */
     function _openEditModal(id) {
         _fajaxRequest({
@@ -515,7 +501,6 @@ const App = (() => {
 
     /**
      * _deleteMeeting – מוחק פגישה לאחר אישור המשתמש.
-     * @param {string} id
      */
     function _deleteMeeting(id) {
         if (!confirm('האם אתה בטוח שברצונך למחוק פגישה זו?')) return;
@@ -569,6 +554,78 @@ const App = (() => {
             onError:       msg => _showToast('שגיאה: ' + msg, 'error'),
             onNetworkError: () => _showToast('שגיאת רשת – נסה שוב', 'error')
         });
+    }
+
+    /**
+     * _renderCalendar – מרנדר לוח שנה שנתי המציין ימים עם פגישות.
+     * פגישות עתידיות מסומנות בירוק, עבר באדום.
+     */
+    function _renderCalendar(meetings) {
+        const container = document.getElementById('yearly-calendar');
+        if (!container) return;
+
+        const now   = new Date();
+        const year  = now.getFullYear();
+
+        // בניית set של תאריכים: { 'YYYY-MM-DD': 'upcoming'|'past'|'both' }
+        const dayMap = {};
+        meetings.forEach(m => {
+            const status = _isPast(m) ? 'past' : 'upcoming';
+            if (!dayMap[m.date]) {
+                dayMap[m.date] = status;
+            } else if (dayMap[m.date] !== status) {
+                dayMap[m.date] = 'both';
+            }
+        });
+
+        const monthNames = [
+            'ינואר','פברואר','מרץ','אפריל','מאי','יוני',
+            'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'
+        ];
+        const dayHeaders = ['ש','א','ב','ג','ד','ה','ו'];
+
+        let html = `<div class="calendar-section">
+            <h3 class="calendar-title">📆 לוח שנה ${year}</h3>
+            <div class="calendar-grid">`;
+
+        for (let month = 0; month < 12; month++) {
+            const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            html += `<div class="cal-month">
+                <div class="cal-month-name">${monthNames[month]}</div>
+                <div class="cal-days-grid">`;
+
+            // כותרות ימים
+            dayHeaders.forEach(d => {
+                html += `<div class="cal-day-header">${d}</div>`;
+            });
+
+            // תאים ריקים לפני היום הראשון (שבת = עמודה 0)
+            // ישראל: שבת ראשון בשבוע → firstDay: 0=Sun,6=Sat
+            const startCol = (firstDay + 1) % 7; // הסטה: ראשון = עמודה 1, שבת = 0
+            for (let i = 0; i < startCol; i++) {
+                html += `<div class="cal-day-empty"></div>`;
+            }
+
+            // ימים
+            for (let day = 1; day <= daysInMonth; day++) {
+                const mm    = String(month + 1).padStart(2, '0');
+                const dd    = String(day).padStart(2, '0');
+                const dateStr = `${year}-${mm}-${dd}`;
+                const status  = dayMap[dateStr];
+                let cls = 'cal-day';
+                if (status === 'upcoming') cls += ' cal-upcoming';
+                else if (status === 'past') cls += ' cal-past';
+                else if (status === 'both') cls += ' cal-both';
+                html += `<div class="${cls}" title="${dateStr}">${day}</div>`;
+            }
+
+            html += `</div></div>`;
+        }
+
+        html += `</div></div>`;
+        container.innerHTML = html;
     }
 
     /**

@@ -8,9 +8,9 @@
 const Network = (() => {
 
     /* ─── קבועי הגדרה ─── */
-    const MIN_DELAY = 0;      // השהיה מינימלית (0 = מיידי)
-    const MAX_DELAY = 0;      // השהיה מקסימלית (0 = מיידי)
-    const DROP_RATE = 0;      // הסתברות השמטה (0 = ללא השמטה)
+    const MIN_DELAY = 1000;      // השהיה מינימלית (0 = מיידי)
+    const MAX_DELAY = 3000;      // השהיה מקסימלית (0 = מיידי)
+    const DROP_RATE = 0.1;      // הסתברות השמטה (0 = ללא השמטה)
 
     /* ─── טבלת ניתוב ─── */
     // ממפה prefix של URL (מחרוזת) לאובייקט השרת המטפל בו
@@ -37,7 +37,6 @@ const Network = (() => {
     /**
      * _findServer – מחפש בטבלת הניתוב שרת שמטפל ב-URL הנתון.
      * בודק אם ה-URL מתחיל באחד מה-prefix-ים הרשומים.
-     * @param {string} url
      * @returns {object|null} אובייקט השרת או null אם לא נמצא
      */
     function _findServer(url) {
@@ -52,8 +51,6 @@ const Network = (() => {
     /**
      * _sendResponse – שולח תגובה משרת ללקוח דרך הרשת.
      * נמסרת לשרת כפרמטר כדי שלא יצטרך לדעת על מודול Network.
-     * @param {FXMLHttpRequest} fxhr   – אובייקט הבקשה המקורי של הלקוח
-     * @param {{ status: number, body: object }} responseObj – התגובה שבנה השרת
      */
     function _sendResponse(fxhr, responseObj) {
         const delay = _randomDelay();
@@ -74,8 +71,6 @@ const Network = (() => {
         /**
          * register – רושם שרת ברשת לפי prefix של URL.
          * לאחר רישום, כל בקשה שכתובתה מתחילה ב-urlPrefix תנותב לשרת זה.
-         * @param {string} urlPrefix  – קידומת URL (למשל '/auth', '/api')
-         * @param {object} server     – אובייקט עם מתודת handleRequest
          */
         register(urlPrefix, server) {
             routingTable[urlPrefix] = server;
@@ -85,7 +80,6 @@ const Network = (() => {
         /**
          * transmit – מעביר בקשה מהלקוח לשרת המתאים.
          * נקרא מ-FXMLHttpRequest.send().
-         * @param {FXMLHttpRequest} fxhr – אובייקט הבקשה שיצר הלקוח
          */
         transmit(fxhr) {
             const delay = _randomDelay();

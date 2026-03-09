@@ -290,8 +290,8 @@ a:hover { text-decoration: underline; }
     box-shadow: 0 4px 18px rgba(0,0,0,0.12);
     transform: translateY(-2px);
 }
-.meeting-card.past   { border-right-color: #a0aec0; opacity: 0.82; }
-.meeting-card.upcoming { border-right-color: #2563eb; }
+.meeting-card.upcoming { border-right-color: #10b981; background: #f0fdf4; }
+.meeting-card.past     { border-right-color: #ef4444; background: #fef2f2; opacity: 0.85; }
 
 .card-header {
     display: flex;
@@ -315,8 +315,8 @@ a:hover { text-decoration: underline; }
     border-radius: 20px;
     white-space: nowrap;
 }
-.badge-upcoming { background: #dbeafe; color: #1d4ed8; }
-.badge-past     { background: #e2e8f0; color: #718096; }
+.badge-upcoming { background: #d1fae5; color: #065f46; }
+.badge-past     { background: #fee2e2; color: #991b1b; }
 
 /* ─── Card Meta ─── */
 .card-body { display: flex; flex-direction: column; gap: 0.35rem; }
@@ -499,6 +499,86 @@ a:hover { text-decoration: underline; }
 }
 
 /* ══════════════════════════════════════════════════════
+   Yearly Calendar
+   ══════════════════════════════════════════════════════ */
+.calendar-section {
+    margin-bottom: 2rem;
+}
+
+.calendar-title {
+    font-size: 1.1rem;
+    color: #1e3a5f;
+    margin-bottom: 1rem;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.cal-month {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.6rem;
+}
+
+.cal-month-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    text-align: center;
+    margin-bottom: 0.4rem;
+}
+
+.cal-days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+}
+
+.cal-day-header {
+    font-size: 0.65rem;
+    color: #a0aec0;
+    text-align: center;
+    font-weight: 600;
+    padding: 0.1rem 0;
+}
+
+.cal-day-empty { height: 20px; }
+
+.cal-day {
+    font-size: 0.68rem;
+    text-align: center;
+    padding: 0.15rem 0;
+    border-radius: 3px;
+    color: #4a5568;
+    line-height: 1.4;
+}
+
+.cal-upcoming {
+    background: #10b981;
+    color: #fff;
+    font-weight: 700;
+    border-radius: 50%;
+}
+
+.cal-past {
+    background: #ef4444;
+    color: #fff;
+    font-weight: 700;
+    border-radius: 50%;
+}
+
+.cal-both {
+    background: linear-gradient(135deg, #10b981 50%, #ef4444 50%);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 50%;
+}
+
+/* ══════════════════════════════════════════════════════
    Responsive
    ══════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
@@ -513,6 +593,7 @@ a:hover { text-decoration: underline; }
     .filters-bar input[type="text"] { width: 100%; }
 
     #meetings-list { grid-template-columns: 1fr; }
+    .calendar-grid { grid-template-columns: repeat(2, 1fr); }
 
     .modal-content { padding: 1.5rem; }
 }
