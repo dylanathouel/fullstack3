@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════
-   style.css – עיצוב מערכת תיאום פגישות
-   כיוון: RTL (עברית)
+    style.css – Appointment Scheduling System Design
+    Orientation: RTL (Hebrew)
    ══════════════════════════════════════════════════════ */
 
 /* ─── Reset & Base ─── */
@@ -437,7 +437,7 @@ a:hover { text-decoration: underline; }
 #cancel-modal:hover { background: #cbd5e0; }
 
 /* ══════════════════════════════════════════════════════
-   Loading – בר התקדמות עדין בראש הדף (לא חוסם את המשתמש)
+   Loading – Progress Bar
    ══════════════════════════════════════════════════════ */
 #loading {
     position: fixed;
@@ -450,15 +450,15 @@ a:hover { text-decoration: underline; }
     background: rgba(255,255,255,0.2);  /* רקע עדין */
 }
 
-/* הבר עצמו – צהוב-כתום בולט על רקע הכחול של ה-header */
+/* The bar itself – yellow-orange stands out against the blue background of the header */
 #loading::after {
     content: '';
     display: block;
     height: 100%;
     width: 40%;
-    background: #fbbf24;        /* amber – בולט על כחול */
+    background: #fbbf24;
     border-radius: 0 3px 3px 0;
-    box-shadow: 0 0 8px rgba(251,191,36,0.7);  /* זוהר קל */
+    box-shadow: 0 0 8px rgba(251,191,36,0.7);  
     animation: loadingBar 1s ease-in-out infinite;
 }
 
@@ -467,10 +467,10 @@ a:hover { text-decoration: underline; }
     100% { margin-left: 140%; }
 }
 
-/* מסתיר את הטקסט "מתחבר לשרת..." – לא רלוונטי יותר */
+/* Hides the text "Connecting to server..."*/
 #loading p { display: none; }
 
-/* מסתיר את הספינר הישן אם קיים */
+/* Hides the old spinner if present*/
 .spinner { display: none; }
 
 /* ══════════════════════════════════════════════════════
@@ -563,9 +563,7 @@ a:hover { text-decoration: underline; }
 
 /* Current day – blue square */
 .cal-today {
-    background: #2563eb;
-    color: #fff;
-    font-weight: 700;
+    background: transparent;
     border-radius: 6px;
     position: relative;
     z-index: 1;
@@ -578,28 +576,24 @@ a:hover { text-decoration: underline; }
 .cal-today.cal-both {
     box-shadow: 0 0 0 2px #2563eb;
     z-index: 2;
-}
+    border-radius: 6px !important;
+    color: #fff;
+    font-weight: 700;
 }
 
 .cal-upcoming {
     background: #10b981;
-    color: #fff;
-    font-weight: 700;
-    border-radius: 50%;
+    border-radius: 6px;
 }
 
 .cal-past {
     background: #ef4444;
-    color: #fff;
-    font-weight: 700;
-    border-radius: 50%;
+    border-radius: 6px;
 }
 
 .cal-both {
     background: linear-gradient(135deg, #10b981 50%, #ef4444 50%);
-    color: #fff;
-    font-weight: 700;
-    border-radius: 50%;
+    border-radius: 6px;
 }
 
 /* ══════════════════════════════════════════════════════
