@@ -609,6 +609,10 @@ const App = (() => {
                 const dateStr = `${year}-${mm}-${dd}`;
                 const status  = dayMap[dateStr];
                 let cls = 'cal-day';
+                // add class for today
+                if (dateStr === [year, mm, dd].join('-') && dateStr === [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-')) {
+                    cls += ' cal-today';
+                }
                 if (status === 'upcoming') cls += ' cal-upcoming';
                 else if (status === 'past') cls += ' cal-past';
                 else if (status === 'both') cls += ' cal-both';

@@ -9,7 +9,7 @@
 <body>
 
 <!-- ══════════════════════════════════════════════════════
-     Header – מוצג רק כשמשתמש מחובר
+    Header – displayed only when user is logged in
      ══════════════════════════════════════════════════════ -->
 <header id="app-header" class="hidden">
     <h1>📅 מערכת תיאום פגישות</h1>
@@ -20,13 +20,13 @@
 </header>
 
 <!-- ══════════════════════════════════════════════════════
-     אזור תוכן ראשי – ה-SPA מרנדר כאן את העמודים
+    Main content area – SPA renders pages here
      ══════════════════════════════════════════════════════ -->
 <main id="main-content"></main>
 
 
 <!-- ══════════════════════════════════════════════════════
-     TEMPLATE: עמוד כניסה (#login)
+    TEMPLATE: Login page (#login)
      ══════════════════════════════════════════════════════ -->
 <template id="login-template">
     <div class="page">
@@ -56,7 +56,7 @@
 
 
 <!-- ══════════════════════════════════════════════════════
-     TEMPLATE: עמוד רישום (#register)
+    TEMPLATE: Registration page (#register)
      ══════════════════════════════════════════════════════ -->
 <template id="register-template">
     <div class="page">
@@ -92,18 +92,18 @@
 
 
 <!-- ══════════════════════════════════════════════════════
-     TEMPLATE: עמוד ניהול פגישות (#meetings)
+    TEMPLATE: Meetings management page (#meetings)
      ══════════════════════════════════════════════════════ -->
 <template id="meetings-template">
     <div class="meetings-page">
 
-        <!-- כותרת + כפתור הוספה -->
+        <!-- Title + Add button -->
         <div class="page-header">
             <h2>הפגישות שלי</h2>
             <button id="add-meeting-btn">+ פגישה חדשה</button>
         </div>
 
-        <!-- סרגל חיפוש וסינון -->
+        <!-- Search and filter bar -->
         <div class="filters-bar">
             <input type="text" id="search-input" placeholder="חיפוש לפי נושא, מיקום, משתתפים...">
             <input type="date" id="date-filter" title="סינון לפי תאריך">
@@ -111,22 +111,22 @@
             <button id="clear-filters-btn">נקה</button>
         </div>
 
-        <!-- לוח שנה שנתי -->
-        <div id="yearly-calendar"></div>
-
-        <!-- רשימת כרטיסיות הפגישות -->
+        <!-- Meetings cards list -->
         <div id="meetings-list"></div>
 
-        <!-- ── Modal הוספה/עריכת פגישה ── -->
+        <!-- Yearly calendar -->
+        <div id="yearly-calendar"></div>
+
+        <!-- ── Add/Edit Meeting Modal ── -->
         <div id="meeting-modal" class="modal hidden">
             <div class="modal-content">
                 <h3 id="modal-title">פגישה חדשה</h3>
 
-                <!-- הודעת שגיאה של הטופס – מוצגת מתחת לכותרת -->
+                <!-- Form error message – displayed below the title -->
                 <div id="modal-error" class="error-msg hidden"></div>
 
                 <form id="meeting-form" novalidate>
-                    <!-- ID מוסתר – קיים בעריכה, ריק בהוספה -->
+                    <!-- Hidden ID – exists in edit, empty in add -->
                     <input type="hidden" id="meeting-id">
 
                     <div class="form-group">
@@ -167,7 +167,7 @@
 
 
 <!-- ══════════════════════════════════════════════════════
-     Loading – בר עדין בראש הדף, לא חוסם את המשתמש
+    Loading – gentle bar at the top, does not block the user
      ══════════════════════════════════════════════════════ -->
 <div id="loading" class="hidden"></div>
 
@@ -176,14 +176,14 @@
 
 
 <!-- ══════════════════════════════════════════════════════
-     טעינת סקריפטים – סדר הטעינה חשוב!
-     1. נתוני seed
-     2. FAJAX (תלוי ב-Network)
-     3. Network (תלוי ב-FAJAX)
-     4. מאגרי מידע DB (תלויים בשרתים)
-     5. שרתים (תלויים ב-DB ו-Network)
-     6. SPA Router
-     7. App – הלוגיקה הראשית, תלויה בכולם
+    Script loading – order is important!
+    1. Seed data
+    2. FAJAX (depends on Network)
+    3. Network (depends on FAJAX)
+    4. DB repositories (depend on servers)
+    5. Servers (depend on DB and Network)
+    6. SPA Router
+    7. App – main logic, depends on all
      ══════════════════════════════════════════════════════ -->
 <script src="js/fajax.js"></script>
 <script src="js/network.js"></script>

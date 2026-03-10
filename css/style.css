@@ -498,6 +498,10 @@ a:hover { text-decoration: underline; }
     to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+#yearly-calendar {
+     margin-top: 16px;
+}
+
 /* ══════════════════════════════════════════════════════
    Yearly Calendar
    ══════════════════════════════════════════════════════ */
@@ -555,6 +559,26 @@ a:hover { text-decoration: underline; }
     border-radius: 3px;
     color: #4a5568;
     line-height: 1.4;
+}
+
+/* Current day – blue square */
+.cal-today {
+    background: #2563eb;
+    color: #fff;
+    font-weight: 700;
+    border-radius: 6px;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 0 0 2px #2563eb;
+}
+
+/* Meeting on the current day – blue peeking out of the corners */
+.cal-today.cal-upcoming,
+.cal-today.cal-past,
+.cal-today.cal-both {
+    box-shadow: 0 0 0 2px #2563eb;
+    z-index: 2;
+}
 }
 
 .cal-upcoming {
