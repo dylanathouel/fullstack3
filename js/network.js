@@ -1,43 +1,39 @@
 /**
- * network.js – מודול הרשת המדומה
+ * network.js – simulated network module
  * ==================================
- * אחראי על העברת הודעות בין לקוחות לשרתים ובחזרה.
- * כרגע פועל במצב מיידי (ללא השהיה וללא השמטת הודעות).
- * ניתן להפעיל את ה-delay וה-drop בעתיד על-ידי שינוי הקבועים.
+ * Responsible for transferring messages between clients and servers and back.
+ * Currently operates with delay and packet-drop enabled.
+ * The delay and drop behaviour can be toggled by changing the constants below.
  */
 const Network = (() => {
 
-    /* ─── קבועי הגדרה ─── */
-    const MIN_DELAY = 1000;      // השהיה מינימלית (0 = מיידי)
-    const MAX_DELAY = 3000;      // השהיה מקסימלית (0 = מיידי)
-    const DROP_RATE = 0.1;      // הסתברות השמטה (0 = ללא השמטה)
+    /* ─── Configuration constants ─── */
+    const MIN_DELAY = 1000;      // minimum delay in ms (0 = immediate)
+    const MAX_DELAY = 3000;      // maximum delay in ms (0 = immediate)
+    const DROP_RATE = 0.1;      // drop probability (0 = no drops)
 
-    /* ─── טבלת ניתוב ─── */
-    // ממפה prefix של URL (מחרוזת) לאובייקט השרת המטפל בו
+    /* ─── Routing table ─── */
+    // Maps a URL prefix (string) to the server object that handles it
     const routingTable = {};
 
     /**
-     * _randomDelay – מחשב השהיה אקראית בין MIN_DELAY ל-MAX_DELAY.
-     * כרגע מחזיר 0 (מיידי).
-     * @returns {number} זמן השהיה במילישניות
+     * _randomDelay – calculates a random delay between MIN_DELAY and MAX_DELAY.
      */
     function _randomDelay() {
         return MIN_DELAY + Math.random() * (MAX_DELAY - MIN_DELAY);
     }
 
     /**
-     * _isDropped – קובע אם הודעה תושמט.
-     * כרגע תמיד מחזיר false (DROP_RATE = 0).
-     * @returns {boolean}
+     * _isDropped – determines whether a message should be dropped.
+     * Returns false when DROP_RATE is 0.
      */
     function _isDropped() {
         return DROP_RATE > 0 && Math.random() < DROP_RATE;
     }
 
     /**
-     * _findServer – מחפש בטבלת הניתוב שרת שמטפל ב-URL הנתון.
-     * בודק אם ה-URL מתחיל באחד מה-prefix-ים הרשומים.
-     * @returns {object|null} אובייקט השרת או null אם לא נמצא
+     * _findServer – searches the routing table for a server that handles the given URL.
+     * Checks whether the URL starts with one of the registered prefixes.
      */
     function _findServer(url) {
         for (const prefix in routingTable) {
@@ -49,8 +45,8 @@ const Network = (() => {
     }
 
     /**
-     * _sendResponse – שולח תגובה משרת ללקוח דרך הרשת.
-     * נמסרת לשרת כפרמטר כדי שלא יצטרך לדעת על מודול Network.
+     * _sendResponse – sends a response from a server to a client through the network.
+     * Passed to the server as a parameter so the server does not need to know about Network.
      */
     function _sendResponse(fxhr, responseObj) {
         const delay = _randomDelay();
@@ -65,12 +61,12 @@ const Network = (() => {
         }, delay);
     }
 
-    /* ─── ממשק ציבורי ─── */
+    /* ─── Public interface ─── */
     return {
 
         /**
-         * register – רושם שרת ברשת לפי prefix של URL.
-         * לאחר רישום, כל בקשה שכתובתה מתחילה ב-urlPrefix תנותב לשרת זה.
+         * register – registers a server on the network for a given URL prefix.
+         * After registration, every request whose URL starts with urlPrefix is routed to this server.
          */
         register(urlPrefix, server) {
             routingTable[urlPrefix] = server;
@@ -78,8 +74,8 @@ const Network = (() => {
         },
 
         /**
-         * transmit – מעביר בקשה מהלקוח לשרת המתאים.
-         * נקרא מ-FXMLHttpRequest.send().
+         * transmit – forwards a request from the client to the appropriate server.
+         * Called from FXMLHttpRequest.send().
          */
         transmit(fxhr) {
             const delay = _randomDelay();
@@ -99,14 +95,13 @@ const Network = (() => {
                     return;
                 }
 
-                // מעביר ל-handleRequest גם את פונקציית _sendResponse כדי שהשרת יחזיר תשובה דרכנו
+                // Passes _sendResponse to handleRequest so the server can return a response through us
                 server.handleRequest(fxhr, _sendResponse);
             }, delay);
         },
 
         /**
-         * getDropRate – מחזיר את ה-drop rate הנוכחי (לצרכי debug).
-         * @returns {number}
+         * getDropRate – returns the current drop rate (for debugging).
          */
         getDropRate() {
             return DROP_RATE;

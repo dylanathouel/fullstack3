@@ -1,26 +1,25 @@
 /**
- * data-server.js – שרת נתוני פגישות
+ * data-server.js – meeting data server
  * =====================================
- * מטפל בכל פעולות ה-CRUD על פגישות המשתמש.
- * עובד מול MeetingsDB דרך ה-DB API בלבד.
+ * Handles all CRUD operations on the user's meetings.
+ * Communicates with MeetingsDB exclusively through the DB API.
  *
- * אימות: כל בקשה חייבת לכלול כותרת Authorization עם טוקן תקף
- *        (שהוצא על-ידי AuthServer לאחר כניסה/רישום).
+ * Authentication: every request must include an Authorization header
+ *                 containing a valid token issued by AuthServer after login/register.
  *
- * REST API – נקודות-קצה:
- *   GET    /api/meetings            – שליפת כל הפגישות של המשתמש
- *   GET    /api/meetings?search=... – חיפוש חופשי בפגישות
- *   GET    /api/meetings?date=...   – סינון לפי תאריך (YYYY-MM-DD)
- *   GET    /api/meetings/:id        – שליפת פגישה ספציפית
- *   POST   /api/meetings            – הוספת פגישה חדשה
- *   PUT    /api/meetings/:id        – עדכון פגישה קיימת
- *   DELETE /api/meetings/:id        – מחיקת פגישה
+ * REST API – endpoints:
+ *   GET    /api/meetings            – fetch all meetings for the user
+ *   GET    /api/meetings?search=... – free-text search across meetings
+ *   GET    /api/meetings?date=...   – filter by date (YYYY-MM-DD)
+ *   GET    /api/meetings/:id        – fetch a specific meeting
+ *   POST   /api/meetings            – create a new meeting
+ *   PUT    /api/meetings/:id        – update an existing meeting
+ *   DELETE /api/meetings/:id        – delete a meeting
  */
 const DataServer = (() => {
 
     /**
-     * _authorize – מחלץ ומאמת טוקן מכותרות הבקשה.
-     * @returns {string|null} userId אם מורשה, null אחרת
+     * _authorize – extracts and validates the token from the request headers.
      */
     function _authorize(fxhr) {
         const token = fxhr._headers['Authorization'];
@@ -29,18 +28,16 @@ const DataServer = (() => {
     }
 
     /**
-     * _extractId – מחלץ ID מ-URL בפורמט /api/meetings/:id.
-     * @returns {string|null} ID אם קיים, null אם ה-URL הוא /api/meetings
+     * _extractId – extracts an ID from a URL in the form /api/meetings/:id.
      */
     function _extractId(urlBase) {
         const parts = urlBase.split('/');
-        const last  = parts[parts.length - 1];
+        const last = parts[parts.length - 1];
         return last === 'meetings' ? null : last;
     }
 
     /**
-     * _parseQuery – מחלץ פרמטרים מ-query string של ה-URL.
-     * @returns {URLSearchParams}
+     * _parseQuery – extracts parameters from the URL query string.
      */
     function _parseQuery(url) {
         const qIndex = url.indexOf('?');
@@ -48,16 +45,15 @@ const DataServer = (() => {
     }
 
     /**
-     * _validateMeeting – בודק תקינות נתוני פגישה בצד השרת.
-     * מבצע אותן בדיקות כמו הלקוח (defense-in-depth):
-     *   – שדות חובה מלאים
-     *   – פורמט תאריך ושעה תקין
-     *   – תאריך לא בעבר
-     *   – לפחות 2 משתתפים
-     * @returns {{ valid: boolean, message?: string }}
+     * _validateMeeting – validates meeting data on the server side.
+     * Performs the same checks as the client (defense-in-depth):
+     *   – required fields are filled
+     *   – date and time format is valid
+     *   – date is not in the past
+     *   – at least 2 participants
      */
     function _validateMeeting(data) {
-        // ── שדות חובה ──
+        // ── Required fields ──
         if (!data.title || data.title.trim().length === 0)
             return { valid: false, message: 'נושא הפגישה הוא שדה חובה' };
 
@@ -73,11 +69,11 @@ const DataServer = (() => {
         if (!/^\d{2}:\d{2}$/.test(data.time))
             return { valid: false, message: 'פורמט שעה לא תקין (נדרש HH:MM)' };
 
-        // ── תאריך לא בעבר ──
-        const now      = new Date();
+        // ── Date must not be in the past ──
+        const now = new Date();
         const todayStr = [
             now.getFullYear(),
-            // מוסיפים ספרות של אפסים כדי להשלים בלכ השדות ל-2 תווים
+            // padStart ensures each component is always 2 digits
             String(now.getMonth() + 1).padStart(2, '0'),
             String(now.getDate()).padStart(2, '0')
         ].join('-');
@@ -85,16 +81,16 @@ const DataServer = (() => {
         if (data.date < todayStr)
             return { valid: false, message: 'לא ניתן לקבוע פגישה בתאריך שכבר עבר' };
 
-        // ── אם הפגישה היום – השעה חייבת להיות בעתיד ──
+        // ── If the meeting is today – the time must be in the future ──
         if (data.date === todayStr) {
-            const [h, m]       = data.time.split(':').map(Number);
+            const [h, m] = data.time.split(':').map(Number);
             const selectedTime = new Date();
             selectedTime.setHours(h, m, 0, 0);
             if (selectedTime <= now)
                 return { valid: false, message: 'הפגישה היא היום – יש לבחור שעה שטרם עברה' };
         }
 
-        // ── לפחות 2 משתתפים ──
+        // ── At least 2 participants ──
         const participantList = (data.participants || '')
             .split(',')
             .map(p => p.trim())
@@ -107,11 +103,11 @@ const DataServer = (() => {
     }
 
     /**
-     * _handleGetAll – GET /api/meetings (עם חיפוש/סינון אופציונלי).
-     * תומך בפרמטרים: ?search=... ו-?date=...
+     * _handleGetAll – GET /api/meetings (with optional search/filter).
+     * Supports query parameters: ?search=... and ?date=...
      */
     function _handleGetAll(fxhr, sendResponse, userId) {
-        const params     = _parseQuery(fxhr.url);
+        const params = _parseQuery(fxhr.url);
         const searchTerm = params.get('search');
         const dateFilter = params.get('date');
 
@@ -129,7 +125,7 @@ const DataServer = (() => {
 
     /**
      * _handleGetOne – GET /api/meetings/:id.
-     * מחזיר פגישה ספציפית אם שייכת למשתמש.
+     * Returns a specific meeting if it belongs to the user.
      */
     function _handleGetOne(fxhr, sendResponse, userId, id) {
         const meeting = MeetingsDB.getById(id);
@@ -142,10 +138,10 @@ const DataServer = (() => {
 
     /**
      * _handleCreate – POST /api/meetings.
-     * מאמת נתונים ומוסיף פגישה חדשה למאגר.
+     * Validates data and adds a new meeting to the store.
      */
     function _handleCreate(fxhr, sendResponse, userId) {
-        const body       = JSON.parse(fxhr.data || '{}');
+        const body = JSON.parse(fxhr.data || '{}');
         const validation = _validateMeeting(body);
 
         if (!validation.valid) {
@@ -155,11 +151,11 @@ const DataServer = (() => {
 
         const newMeeting = MeetingsDB.add({
             userId,
-            title:        body.title.trim(),
-            date:         body.date,
-            time:         body.time,
-            location:     (body.location     || '').trim(),
-            participants: (body.participants  || '').trim()
+            title: body.title.trim(),
+            date: body.date,
+            time: body.time,
+            location: (body.location || '').trim(),
+            participants: (body.participants || '').trim()
         });
 
         sendResponse(fxhr, { status: 201, body: { meeting: newMeeting } });
@@ -167,7 +163,7 @@ const DataServer = (() => {
 
     /**
      * _handleUpdate – PUT /api/meetings/:id.
-     * מוודא שהפגישה שייכת למשתמש, מאמת ומעדכן.
+     * Verifies the meeting belongs to the user, validates, then updates.
      */
     function _handleUpdate(fxhr, sendResponse, userId, id) {
         const existing = MeetingsDB.getById(id);
@@ -176,10 +172,10 @@ const DataServer = (() => {
             return;
         }
 
-        const body       = JSON.parse(fxhr.data || '{}');
-        // מיזוג נתונים קיימים עם העדכון לצורך ולידציה מלאה
-        const merged     = { ...existing, ...body };
-        
+        const body = JSON.parse(fxhr.data || '{}');
+        // Merge existing data with the update for full validation
+        const merged = { ...existing, ...body };
+
         const validation = _validateMeeting(merged);
 
         if (!validation.valid) {
@@ -188,11 +184,11 @@ const DataServer = (() => {
         }
 
         const updated = MeetingsDB.update(id, {
-            title:        merged.title.trim(),
-            date:         merged.date,
-            time:         merged.time,
-            location:     (merged.location     || '').trim(),
-            participants: (merged.participants  || '').trim()
+            title: merged.title.trim(),
+            date: merged.date,
+            time: merged.time,
+            location: (merged.location || '').trim(),
+            participants: (merged.participants || '').trim()
         });
 
         sendResponse(fxhr, { status: 200, body: { meeting: updated } });
@@ -200,7 +196,7 @@ const DataServer = (() => {
 
     /**
      * _handleDelete – DELETE /api/meetings/:id.
-     * מוודא שהפגישה שייכת למשתמש ומוחקת.
+     * Verifies the meeting belongs to the user and deletes it.
      */
     function _handleDelete(fxhr, sendResponse, userId, id) {
         const existing = MeetingsDB.getById(id);
@@ -213,38 +209,38 @@ const DataServer = (() => {
         sendResponse(fxhr, { status: 200, body: { message: 'הפגישה נמחקה בהצלחה' } });
     }
 
-    /* ─── ממשק ציבורי ─── */
+    /* ─── Public interface ─── */
     return {
 
         /**
-         * register – רושם את השרת ברשת התקשורת תחת prefix '/api'.
+         * register – registers the server on the network under the '/api' prefix.
          */
         register() {
             Network.register('/api', this);
         },
 
         /**
-         * handleRequest – נקודת הכניסה הראשית של שרת הנתונים.
-         * מאמת טוקן ומנתב לפי method ו-URL.
+         * handleRequest – main entry point for the data server.
+         * Validates the token and routes by method and URL.
          */
         handleRequest(fxhr, sendResponse) {
-            // בדיקת הרשאה – כל בקשה דורשת טוקן תקף
+            // Authorisation check – every request requires a valid token
             const userId = _authorize(fxhr);
             if (!userId) {
                 sendResponse(fxhr, { status: 401, body: { error: 'לא מורשה – נא להתחבר מחדש' } });
                 return;
             }
 
-            const urlBase = fxhr.url.split('?')[0];   // URL ללא query string
-            const method  = fxhr.method;
-            const id      = _extractId(urlBase);
+            const urlBase = fxhr.url.split('?')[0];   // URL without query string
+            const method = fxhr.method;
+            const id = _extractId(urlBase);
 
-            if      (method === 'GET'    && !id) _handleGetAll(fxhr, sendResponse, userId);
-            else if (method === 'GET'    &&  id) _handleGetOne(fxhr, sendResponse, userId, id);
-            else if (method === 'POST')           _handleCreate(fxhr, sendResponse, userId);
-            else if (method === 'PUT'    &&  id) _handleUpdate(fxhr, sendResponse, userId, id);
-            else if (method === 'DELETE' &&  id) _handleDelete(fxhr, sendResponse, userId, id);
-            else    sendResponse(fxhr, { status: 400, body: { error: 'Bad request' } });
+            if (method === 'GET' && !id) _handleGetAll(fxhr, sendResponse, userId);
+            else if (method === 'GET' && id) _handleGetOne(fxhr, sendResponse, userId, id);
+            else if (method === 'POST') _handleCreate(fxhr, sendResponse, userId);
+            else if (method === 'PUT' && id) _handleUpdate(fxhr, sendResponse, userId, id);
+            else if (method === 'DELETE' && id) _handleDelete(fxhr, sendResponse, userId, id);
+            else sendResponse(fxhr, { status: 400, body: { error: 'Bad request' } });
         }
     };
 

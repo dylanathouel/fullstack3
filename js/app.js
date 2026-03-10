@@ -1,32 +1,32 @@
 /**
- * app.js – לוגיקת הלקוח הראשית
+ * app.js – main client logic
  * =================================
- * מאתחל את כל רכיבי המערכת ומנהל את האינטראקציה עם המשתמש.
- * כולל: ניהול session, עמודי כניסה/רישום, ועמוד ניהול פגישות.
+ * Initialises all system components and manages user interaction.
+ * Includes: session management, login/register pages, and the meetings page.
  *
- * זרימת ה-FAJAX:
+ * FAJAX flow:
  *   _fajaxRequest → FXMLHttpRequest.send() → Network.transmit()
- *   → [השהיה ± השמטה] → Server.handleRequest() → sendResponse()
- *   → [השהיה ± השמטה] → FXMLHttpRequest._handleResponse()
+ *   → [delay ± drop] → Server.handleRequest() → sendResponse()
+ *   → [delay ± drop] → FXMLHttpRequest._handleResponse()
  *   → xhr.onload / xhr.onerror → onSuccess / onError / onNetworkError
  */
 const App = (() => {
 
     /* ══════════════════════════════════════════
-       מצב האפליקציה
+       Application state
     ══════════════════════════════════════════ */
-    let currentUser    = null;   // אובייקט המשתמש הנוכחי (ללא סיסמה)
-    let sessionToken   = null;   // טוקן ה-session הפעיל
-    let _loadingCount  = 0;      // מונה בקשות פעילות (למניעת הסרה מוקדמת של Loading)
-    let _meetingsReqSeq = 0;     // מונה סידורי לבקשות טעינת פגישות – מגן מפני Race Condition
+    let currentUser    = null;   // current user object (password excluded)
+    let sessionToken   = null;   // active session token
+    let _loadingCount  = 0;      // active-request counter (prevents premature loading-bar removal)
+    let _meetingsReqSeq = 0;     // monotonic sequence counter for meeting-load requests – guards against race conditions
 
     /* ══════════════════════════════════════════
-       ניהול Session
+       Session management
     ══════════════════════════════════════════ */
 
     /**
-     * _saveSession – שומר token ו-user ב-sessionStorage לאחר כניסה מוצלחת.
-     * sessionStorage נמחק אוטומטית בסגירת הכרטיסייה.
+     * _saveSession – stores the token and user in sessionStorage after a successful login.
+     * sessionStorage is automatically cleared when the tab is closed.
      */
     function _saveSession(token, user) {
         sessionToken = token;
@@ -36,8 +36,7 @@ const App = (() => {
     }
 
     /**
-     * _loadSession – מנסה לשחזר session קיים מ-sessionStorage.
-     * @returns {boolean} true אם session תקף נמצא
+     * _loadSession – attempts to restore an existing session from sessionStorage.
      */
     function _loadSession() {
         const token = sessionStorage.getItem('m_token');
@@ -51,7 +50,7 @@ const App = (() => {
     }
 
     /**
-     * _clearSession – מנקה את ה-session הנוכחי (בזיכרון ובאחסון).
+     * _clearSession – clears the current session (both in memory and in storage).
      */
     function _clearSession() {
         sessionToken = null;
@@ -65,7 +64,7 @@ const App = (() => {
     ══════════════════════════════════════════ */
 
     /**
-     * _showLoading – מציג ספינר טעינה. משתמש במונה כדי לתמוך בבקשות מקבילות.
+     * _showLoading – shows the loading bar. Uses a counter to support concurrent requests.
      */
     function _showLoading() {
         _loadingCount++;
@@ -73,7 +72,7 @@ const App = (() => {
     }
 
     /**
-     * _hideLoading – מסתיר ספינר טעינה. מסתיר רק כשאין עוד בקשות פעילות.
+     * _hideLoading – hides the loading bar. Only hides when there are no more active requests.
      */
     function _hideLoading() {
         _loadingCount = Math.max(0, _loadingCount - 1);
@@ -83,7 +82,7 @@ const App = (() => {
     }
 
     /**
-     * _showError – מציג הודעת שגיאה באלמנט מסוים.
+     * _showError – displays an error message in a given element.
      */
     function _showError(elementId, message) {
         const el = document.getElementById(elementId);
@@ -93,7 +92,7 @@ const App = (() => {
     }
 
     /**
-     * _hideError – מסתיר הודעת שגיאה.
+     * _hideError – hides an error message.
      */
     function _hideError(elementId) {
         const el = document.getElementById(elementId);
@@ -101,7 +100,7 @@ const App = (() => {
     }
 
     /**
-     * _showToast – מציג הודעת Toast זמנית בתחתית המסך.
+     * _showToast – displays a temporary toast notification at the bottom of the screen.
      */
     function _showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
@@ -113,8 +112,8 @@ const App = (() => {
     }
 
     /**
-     * _updateHeader – מעדכן את ה-header לפי מצב ה-session.
-     * מציג שם משתמש וכפתור התנתקות אם מחובר, מסתיר אחרת.
+     * _updateHeader – updates the header based on the current session state.
+     * Shows the username and logout button when logged in, hides it otherwise.
      */
     function _updateHeader() {
         const header  = document.getElementById('app-header');
@@ -128,14 +127,13 @@ const App = (() => {
     }
 
     /* ══════════════════════════════════════════
-       FAJAX Helper – תקשורת אסינכרונית עם השרת
+       FAJAX Helper – asynchronous server communication
     ══════════════════════════════════════════ */
 
     /**
-     * _fajaxRequest – יוצר ושולח בקשת לשרת.
-     * תומך בניסיון חוזר (retry) במקרה של שגיאת רשת (הודעה שנופלת).
-     * מטפל אוטומטית בתגובת 401 (session פג תוקפו).
-     *
+     * _fajaxRequest – creates and sends a request to the server.
+     * Supports automatic retry on network error (dropped message).
+     * Automatically handles 401 responses (expired session).
      */
     function _fajaxRequest({ method, url, data, token, onSuccess, onError, onNetworkError, retries = 2, _isRetry = false }) {
         if (!_isRetry) _showLoading();
@@ -143,17 +141,17 @@ const App = (() => {
         const xhr = new FXMLHttpRequest();
         xhr.open(method, url);
 
-        // הוספת תאימות נדרשת בשליחה לשרת
+        // Set required headers before sending
         if (token)  xhr.setRequestHeader('Authorization', token);
         if (data)   xhr.setRequestHeader('Content-Type', 'application/json');
 
-        // ─── onload: מגיע כשהשרת שלח תגובה (בכל status) ─────────────────
-        // מימוש אירוע מוגדר במערכת
+        // ─── onload: fired when the server sends a response (any status) ─────────────────
+        // Event handler defined by the system
         xhr.onload = () => {
             _hideLoading();
             const response = JSON.parse(xhr.responseText);
 
-            // (מקרה די נדיר בפרויקט שלנו) session פג תוקפו – ניקוי והפניה לדף כניסה
+            // Expired session (rare in this project) – clear and redirect to login
             if (xhr.status === 401 && url.startsWith('/api')) {
                 _clearSession();
                 _updateHeader();
@@ -170,8 +168,8 @@ const App = (() => {
             }
         };
 
-        // ─── onerror: מגיע כשהרשת השמיטה את ההודעה ──────────────────────
-        // מימוש אירוע מוגדר במערכת
+        // ─── onerror: fired when the network dropped the message ──────────────────────
+        // Event handler defined by the system
         xhr.onerror = () => {
             if (retries > 0) {
                 console.log(`[App] Network drop on ${method} ${url} – retrying (${retries} left)`);
@@ -183,18 +181,18 @@ const App = (() => {
                 if (typeof onNetworkError === 'function') onNetworkError();
             }
         };
-        
-        // שליחת הבקשה בפועל
+
+        // Send the actual request
         xhr.send(data ? JSON.stringify(data) : null);
     }
 
     /* ══════════════════════════════════════════
-       עמוד כניסה (Login)
+       Login page
     ══════════════════════════════════════════ */
 
     /**
-     * _initLoginPage – מאתחל את עמוד הכניסה ומגדיר handler לטופס.
-     * מופעל על-ידי ה-SPA בכל כניסה לדף.
+     * _initLoginPage – initialises the login page and sets up the form handler.
+     * Called by the SPA every time the login route is entered.
      */
     function _initLoginPage() {
         const form = document.getElementById('login-form');
@@ -212,7 +210,7 @@ const App = (() => {
                 return;
             }
 
-            // קריאה לפונקציה שאחראית לשלוח בקשות לשרת
+            // Call the function responsible for sending requests to the server
             _fajaxRequest({
                 method:   'POST',
                 url:      '/auth/login',
@@ -229,21 +227,21 @@ const App = (() => {
     }
 
     /* ══════════════════════════════════════════
-       עמוד רישום (Register)
+       Register page
     ══════════════════════════════════════════ */
 
     /**
-     * _initRegisterPage – מאתחל את עמוד הרישום ומגדיר handler לטופס.
+     * _initRegisterPage – initialises the registration page and sets up the form handler.
      */
     function _initRegisterPage() {
         const form = document.getElementById('register-form');
         if (!form) return;
 
         form.addEventListener('submit', e => {
-            // ביטול התנהגות ברירת המחדל של הטופס (שליחה וטעינה מחדש של הדף) על מנת לאפשר שימוש ב SPA ו-FAJAX
+            // Prevent default form submission (page reload) to allow SPA and FAJAX to work
             e.preventDefault();
 
-            // הסתרת הודעות שגיאה קודמות בכל ניסיון רישום חדש
+            // Hide any previous error messages on each new registration attempt
             _hideError('register-error');
 
             const username = document.getElementById('reg-username').value.trim();
@@ -272,12 +270,11 @@ const App = (() => {
     }
 
     /* ══════════════════════════════════════════
-       עמוד פגישות (Meetings)
+       Meetings page
     ══════════════════════════════════════════ */
 
     /**
-     * _formatDate – ממיר תאריך מפורמט YYYY-MM-DD לפורמט DD/MM/YYYY.
-     * @returns {string}
+     * _formatDate – converts a date from YYYY-MM-DD format to DD/MM/YYYY.
      */
     function _formatDate(dateStr) {
         if (!dateStr) return '';
@@ -286,16 +283,14 @@ const App = (() => {
     }
 
     /**
-     * _formatTime – מציג שעה בפורמט HH:MM (כבר בפורמט הנכון).
-     * @returns {string}
+     * _formatTime – displays a time in HH:MM format (already in the correct format).
      */
     function _formatTime(timeStr) {
         return timeStr || '';
     }
 
     /**
-     * _isPast – בודק אם פגישה כבר עברה (לפי תאריך ושעה).
-     * @returns {boolean}
+     * _isPast – checks whether a meeting has already passed (by date and time).
      */
     function _isPast(meeting) {
         const now         = new Date();
@@ -304,7 +299,7 @@ const App = (() => {
     }
 
     /**
-     * _renderMeetings – מרנדר את רשימת הפגישות בדף כרטיסיות.
+     * _renderMeetings – renders the list of meetings as cards on the page.
      */
     function _renderMeetings(meetings) {
         const list = document.getElementById('meetings-list');
@@ -317,7 +312,7 @@ const App = (() => {
 
         list.innerHTML = meetings.map(m => {
             const past = _isPast(m);
-            // data-id - תג המשמש לצורך זיהוי פנימי כאן משמש לזיהוי הפגישה בעת לחיצה על כפתור עריכה/מחיקה
+            // data-id attribute is used to identify the meeting when edit/delete buttons are clicked
             return `
             <div class="meeting-card ${past ? 'past' : 'upcoming'}" data-id="${m.id}">
                 <div class="card-header">
@@ -341,7 +336,7 @@ const App = (() => {
             </div>`;
         }).join('');
 
-        // הוספת event listeners לכפתורי ערוך/מחק
+        // Attach event listeners to edit/delete buttons
         list.querySelectorAll('.btn-edit').forEach(btn => {
             btn.addEventListener('click', () => _openEditModal(btn.dataset.id));
         });
@@ -351,19 +346,19 @@ const App = (() => {
     }
 
     /**
-     * _loadMeetings – טוען פגישות מהשרת עם אפשרות חיפוש וסינון תאריך.
+     * _loadMeetings – fetches meetings from the server with optional search and date filter.
      */
     function _loadMeetings(search = '', date = '') {
         let url = '/api/meetings';
-        //השתמשנו פה בקטנה במשהו שלא נלמד, הURLSearchParams נועד לנקות את הערכים בגישה לשרת, עשינו את זה כדי לשמור על רמה גבוה אבל בפועל הכל עובד גם בלי זה
+        // URLSearchParams sanitises query values before they reach the server
         const params = new URLSearchParams();
         if (search) params.set('search', search);
         if (date)   params.set('date',   date);
         if ([...params].length > 0) url += '?' + params.toString();
 
-        // מונה סידורי: כל קריאה ל-_loadMeetings מקבלת מספר עולה.
-        // כשהתגובה מגיעה, בודקים שהיא שייכת לבקשה ה-אחרונה.
-        // אם בינתיים נשלחה בקשה חדשה יותר – משליכים את התגובה הישנה (Race Condition).
+        // Sequence counter: each call to _loadMeetings gets a new incrementing number.
+        // When the response arrives we check it belongs to the latest request.
+        // If a newer request has been sent in the meantime, the old response is discarded (race condition guard).
         const seq = ++_meetingsReqSeq;
 
         _fajaxRequest({
@@ -371,7 +366,7 @@ const App = (() => {
             url,
             token:   sessionToken,
             onSuccess: res => {
-                // מתעלמים מתגובות של בקשות ישנות שהגיעו אחרי בקשה חדשה יותר
+                // Ignore responses from older requests that arrived after a newer one
                 if (seq < _meetingsReqSeq) return;
                 _renderMeetings(res.meetings);
                 _renderCalendar(res.meetings);
@@ -381,10 +376,10 @@ const App = (() => {
         });
     }
 
-    /* ── Modal פגישה ── */
+    /* ── Meeting modal ── */
 
     /**
-     * _showModalError – מציג הודעת שגיאה בתוך ה-modal מעל הטופס.
+     * _showModalError – displays an error message inside the modal above the form.
      */
     function _showModalError(message) {
         const el = document.getElementById('modal-error');
@@ -394,7 +389,7 @@ const App = (() => {
     }
 
     /**
-     * _hideModalError – מסתיר את הודעת השגיאה של ה-modal.
+     * _hideModalError – hides the modal error message.
      */
     function _hideModalError() {
         const el = document.getElementById('modal-error');
@@ -402,24 +397,23 @@ const App = (() => {
     }
 
     /**
-     * _validateMeetingForm – בודק תקינות נתוני הטופס בצד הלקוח לפני שליחה לשרת.
-     * בודק: שדות חובה, תאריך לא בעבר, אם היום – שעה לא בעבר, לפחות 2 משתתפים.
-     * @returns {{ valid: boolean, message?: string }}
+     * _validateMeetingForm – validates meeting form data on the client side before sending to the server.
+     * Checks: required fields, date not in the past, if today then time not in the past, at least 2 participants.
      */
     function _validateMeetingForm(data) {
-        // ── נושא חובה ──
+        // ── Title required ──
         if (!data.title || data.title.trim().length === 0)
             return { valid: false, message: 'חובה למלא נושא לפגישה' };
 
-        // ── תאריך חובה ──
+        // ── Date required ──
         if (!data.date)
             return { valid: false, message: 'חובה לבחור תאריך לפגישה' };
 
-        // ── שעה חובה ──
+        // ── Time required ──
         if (!data.time)
             return { valid: false, message: 'חובה לבחור שעה לפגישה' };
 
-        // בונה מחרוזת תאריך היום בפורמט YYYY-MM-DD (לפי שעון מקומי, לא UTC)
+        // Build today's date string in YYYY-MM-DD format (local time, not UTC)
         const now      = new Date();
         const todayStr = [
             now.getFullYear(),
@@ -427,11 +421,11 @@ const App = (() => {
             String(now.getDate()).padStart(2, '0')
         ].join('-');
 
-        // ── תאריך לא בעבר ──
+        // ── Date must not be in the past ──
         if (data.date < todayStr)
             return { valid: false, message: 'לא ניתן לקבוע פגישה בתאריך שכבר עבר' };
 
-        // ── אם הפגישה היום – השעה חייבת להיות בעתיד ──
+        // ── If the meeting is today – the time must be in the future ──
         if (data.date === todayStr) {
             const [h, m]       = data.time.split(':').map(Number);
             const selectedTime = new Date();
@@ -440,7 +434,7 @@ const App = (() => {
                 return { valid: false, message: 'הפגישה היא היום – יש לבחור שעה שטרם עברה' };
         }
 
-        // ── לפחות 2 משתתפים ──
+        // ── At least 2 participants ──
         const participantList = (data.participants || '')
             .split(',')
             .map(p => p.trim())
@@ -453,13 +447,13 @@ const App = (() => {
     }
 
     /**
-     * _openModal – פותח את ה-modal להוספה/עריכת פגישה.
+     * _openModal – opens the modal for adding or editing a meeting.
      */
     function _openModal(meeting = null) {
         const modal = document.getElementById('meeting-modal');
         if (!modal) return;
 
-        // ניקוי שגיאה קודמת בכל פתיחה
+        // Clear any previous error on every open
         _hideModalError();
 
         document.getElementById('modal-title').textContent =
@@ -477,7 +471,7 @@ const App = (() => {
     }
 
     /**
-     * _closeModal – סוגר את ה-modal ומנקה את הטופס ואת הודעות השגיאה.
+     * _closeModal – closes the modal and clears the form and error messages.
      */
     function _closeModal() {
         const modal = document.getElementById('meeting-modal');
@@ -486,7 +480,7 @@ const App = (() => {
     }
 
     /**
-     * _openEditModal – שולף פגישה מהשרת ואחר-כך פותח את ה-modal בעריכה.
+     * _openEditModal – fetches a meeting from the server then opens the modal in edit mode.
      */
     function _openEditModal(id) {
         _fajaxRequest({
@@ -500,7 +494,7 @@ const App = (() => {
     }
 
     /**
-     * _deleteMeeting – מוחק פגישה לאחר אישור המשתמש.
+     * _deleteMeeting – deletes a meeting after user confirmation.
      */
     function _deleteMeeting(id) {
         if (!confirm('האם אתה בטוח שברצונך למחוק פגישה זו?')) return;
@@ -516,9 +510,9 @@ const App = (() => {
     }
 
     /**
-     * _handleMeetingFormSubmit – מטפל בשמירת טופס הפגישה (הוספה או עדכון).
-     * מבצע ולידציה בצד הלקוח לפני שליחה לשרת.
-     * קורא ל-POST ליצירה ו-PUT לעדכון.
+     * _handleMeetingFormSubmit – handles saving the meeting form (add or update).
+     * Performs client-side validation before sending to the server.
+     * Calls POST to create and PUT to update.
      */
     function _handleMeetingFormSubmit(e) {
         e.preventDefault();
@@ -533,11 +527,11 @@ const App = (() => {
             participants: document.getElementById('meeting-participants').value.trim()
         };
 
-        // ── ולידציה בצד לקוח לפני כל שליחה לשרת ──
+        // ── Client-side validation before every server request ──
         const validation = _validateMeetingForm(data);
         if (!validation.valid) {
             _showModalError(validation.message);
-            return;   // עוצר כאן – לא שולח לשרת
+            return;   // stop here – do not send to server
         }
 
         const method = id ? 'PUT' : 'POST';
@@ -557,8 +551,8 @@ const App = (() => {
     }
 
     /**
-     * _renderCalendar – מרנדר לוח שנה שנתי המציין ימים עם פגישות.
-     * פגישות עתידיות מסומנות בירוק, עבר באדום.
+     * _renderCalendar – renders a yearly calendar highlighting days that have meetings.
+     * Upcoming meetings are marked green, past meetings are marked red.
      */
     function _renderCalendar(meetings) {
         const container = document.getElementById('yearly-calendar');
@@ -567,7 +561,7 @@ const App = (() => {
         const now   = new Date();
         const year  = now.getFullYear();
 
-        // בניית set של תאריכים: { 'YYYY-MM-DD': 'upcoming'|'past'|'both' }
+        // Build a map of dates: { 'YYYY-MM-DD': 'upcoming'|'past'|'both' }
         const dayMap = {};
         meetings.forEach(m => {
             const status = _isPast(m) ? 'past' : 'upcoming';
@@ -596,19 +590,19 @@ const App = (() => {
                 <div class="cal-month-name">${monthNames[month]}</div>
                 <div class="cal-days-grid">`;
 
-            // כותרות ימים
+            // Day-of-week headers
             dayHeaders.forEach(d => {
                 html += `<div class="cal-day-header">${d}</div>`;
             });
 
-            // תאים ריקים לפני היום הראשון (שבת = עמודה 0)
-            // ישראל: שבת ראשון בשבוע → firstDay: 0=Sun,6=Sat
-            const startCol = (firstDay + 1) % 7; // הסטה: ראשון = עמודה 1, שבת = 0
+            // Empty cells before the first day (Saturday = column 0).
+            // Israeli calendar: Saturday is the first day of the week → firstDay: 0=Sun, 6=Sat
+            const startCol = (firstDay + 1) % 7; // offset: Sunday = column 1, Saturday = 0
             for (let i = 0; i < startCol; i++) {
                 html += `<div class="cal-day-empty"></div>`;
             }
 
-            // ימים
+            // Day cells
             for (let day = 1; day <= daysInMonth; day++) {
                 const mm    = String(month + 1).padStart(2, '0');
                 const dd    = String(day).padStart(2, '0');
@@ -629,22 +623,22 @@ const App = (() => {
     }
 
     /**
-     * _initMeetingsPage – מאתחל את עמוד ניהול הפגישות.
-     * טוען פגישות ומגדיר את כל ה-event listeners.
+     * _initMeetingsPage – initialises the meetings management page.
+     * Loads meetings and sets up all event listeners.
      */
     function _initMeetingsPage() {
-        // טעינת פגישות ראשונית
+        // Initial meetings load
         _loadMeetings();
 
-        // כפתור הוסף פגישה
+        // Add meeting button
         const addBtn = document.getElementById('add-meeting-btn');
         if (addBtn) addBtn.addEventListener('click', () => _openModal());
 
-        // כפתור ביטול modal שייך לתצוגה של הוספת/עריכת פגישה
+        // Cancel button in the add/edit modal
         const cancelBtn = document.getElementById('cancel-modal');
         if (cancelBtn) cancelBtn.addEventListener('click', _closeModal);
 
-        // מאפשר סגירה של חלון העריכה/הוספה בלחיצה מחוץ לחלון
+        // Close the modal by clicking outside of it
         const modal = document.getElementById('meeting-modal');
         if (modal) {
             modal.addEventListener('click', e => {
@@ -652,11 +646,11 @@ const App = (() => {
             });
         }
 
-        // שמירת טופס פגישה
+        // Meeting form save
         const form = document.getElementById('meeting-form');
         if (form) form.addEventListener('submit', _handleMeetingFormSubmit);
 
-        // חיפוש חופשי
+        // Free-text search
         const searchInput = document.getElementById('search-input');
         const searchBtn   = document.getElementById('search-btn');
         const dateInput   = document.getElementById('date-filter');
@@ -676,14 +670,14 @@ const App = (() => {
             });
         }
 
-        // סינון לפי תאריך
+        // Filter by date
         if (dateInput) {
             dateInput.addEventListener('change', () => {
                 _loadMeetings(searchInput.value.trim(), dateInput.value);
             });
         }
 
-        // ניקוי סינונים
+        // Clear filters
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
                 if (searchInput) searchInput.value = '';
@@ -694,12 +688,12 @@ const App = (() => {
     }
 
     /* ══════════════════════════════════════════
-       התנתקות (Logout)
+       Logout
     ══════════════════════════════════════════ */
 
     /**
-     * _handleLogout – מתנתק מהשרת, מנקה session ומנווט לדף כניסה.
-     * גם אם הבקשה נכשלת ברשת – מנקה את ה-session המקומי.
+     * _handleLogout – logs out from the server, clears the session and navigates to the login page.
+     * Even if the request fails due to a network error, the local session is cleared.
      */
 function _handleLogout() {
     const logoutCleanup = () => {
@@ -708,7 +702,7 @@ function _handleLogout() {
         SPA.resetRoute();
         SPA.navigateTo('login');
     };
-    // נרצה לאפשר ניקוי של ה-session בכל מקרה של התנתקות
+    // Always clean up the session regardless of the logout request outcome
     _fajaxRequest({
         method: 'POST',
         url:    '/auth/logout',
@@ -720,21 +714,21 @@ function _handleLogout() {
 }
 
     /* ══════════════════════════════════════════
-       אתחול ראשי
+       Main initialisation
     ══════════════════════════════════════════ */
 
     /**
-     * init – מאתחל את כל רכיבי המערכת ומפעיל את ה-SPA.
-     * נקרא פעם אחת לאחר טעינת ה-DOM.
+     * init – initialises all system components and starts the SPA.
+     * Called once after the DOM has loaded.
      */
     function init() {
 
-        // 1. רישום שתי שרתים ברשת התקשורת
+        // 1. Register both servers with the network
         AuthServer.register();
         DataServer.register();
 
-        // 2. הגדרת routes ב-SPA
-        //    login – guard: אם כבר מחובר, עבור ישירות לפגישות
+        // 2. Define SPA routes
+        //    login – guard: if already logged in, go straight to meetings
         SPA.addRoute(
             'login',
             'login-template',
@@ -743,7 +737,7 @@ function _handleLogout() {
             () => SPA.navigateTo('meetings')
         );
 
-        //    register – guard: אם כבר מחובר, עבור ישירות לפגישות
+        //    register – guard: if already logged in, go straight to meetings
         SPA.addRoute(
             'register',
             'register-template',
@@ -752,7 +746,7 @@ function _handleLogout() {
             () => SPA.navigateTo('meetings')
         );
 
-        //    meetings – guard: אם לא מחובר, עבור לדף כניסה
+        //    meetings – guard: if not logged in, go to the login page
         SPA.addRoute(
             'meetings',
             'meetings-template',
@@ -761,21 +755,21 @@ function _handleLogout() {
             () => SPA.navigateTo('login')
         );
 
-        // 3. שחזור session קיים מ-sessionStorage (לאחר רענון דף)
-        //    _loadSession משחזר את currentUser ו-sessionToken מהדפדפן,
-        //    אך activeSessions ב-AuthServer מתאפס בכל רענון (זיכרון JS בלבד).
-        //    restoreSession רושם מחדש את הטוקן ב-AuthServer כדי שהבקשות יאומתו.
+        // 3. Restore an existing session from sessionStorage (after a page refresh).
+        //    _loadSession restores currentUser and sessionToken from the browser,
+        //    but activeSessions in AuthServer is reset on every refresh (JS memory only).
+        //    restoreSession re-registers the token in AuthServer so that requests are authenticated.
         _loadSession();
         if (sessionToken && currentUser) {
             AuthServer.restoreSession(sessionToken, currentUser.id);
         }
         _updateHeader();
 
-        // 4. כפתור התנתקות בראש הדף
+        // 4. Logout button in the page header
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) logoutBtn.addEventListener('click', _handleLogout);
 
-        // 5. הפעלת מנגנון הניתוב
+        // 5. Start the routing engine
         SPA.init();
     }
 
@@ -783,5 +777,5 @@ function _handleLogout() {
 
 })();
 
-/* הפעלת האפליקציה לאחר סיום טעינת ה-DOM */
+/* Start the application after the DOM has finished loading */
 window.addEventListener('DOMContentLoaded', App.init);

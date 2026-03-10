@@ -1,24 +1,24 @@
 /**
- * spa.js – מנגנון ניתוב צד-לקוח (Client-Side Router)
+ * spa.js – client-side router
  * ======================================================
- * מנהל מעברים בין עמודים ביישום ה-SPA ללא טעינה מחדש של הדף.
- * מבוסס על hash (#) בכתובת ה-URL (למשל: index.html#login).
+ * Manages page transitions in the SPA without reloading the page.
+ * Based on the hash (#) in the URL (e.g. index.html#login).
  *
- * תמיכה ב-Guard:
- *   כל route יכול לכלול פונקציית guard שנבדקת לפני הרינדור.
- *   אם ה-guard מחזיר false, תיקרא פונקציית onGuardFail במקום.
- *   כך מונעים הצגת תוכן לפני שה-JavaScript הספיק להפנות חזרה.
+ * Guard support:
+ *   Each route can include a guard function that is checked before rendering.
+ *   If the guard returns false, onGuardFail is called instead.
+ *   This prevents protected content from flashing before the JS redirect fires.
  */
 const SPA = (() => {
 
-    // מפת כל ה-routes הרשומים: { [hash]: routeConfig }
+    // Map of all registered routes: { [hash]: routeConfig }
     const routes    = {};
     let currentRoute = null;
     const container  = document.getElementById('main-content');
 
     /**
-     * _loadTemplate – מעתיק תוכן של <template> מה-DOM ומחזיר צומת מוכן להכנסה.
-     * @returns {DocumentFragment|null}
+     * _loadTemplate – clones the content of a <template> from the DOM and
+     * returns a node ready to be inserted.
      */
     function _loadTemplate(templateId) {
         const tmpl = document.getElementById(templateId);
@@ -30,61 +30,63 @@ const SPA = (() => {
     }
 
     /**
-     * _navigate – מנתב לפי ה-hash הנוכחי ב-URL.
-     * בודק guard, מרנדר את ה-template ומפעיל את onEnter.
-     * מופעל על כל שינוי hash וב-init.
+     * _navigate – routes based on the current hash in the URL.
+     * Checks the guard, renders the template and fires onEnter.
+     * Triggered on every hashchange event and on init.
      */
     function _navigate() {
         const hash  = window.location.hash.replace('#', '') || 'login';
         const route = routes[hash];
 
-        // route לא מוגדר – הפניה לדפדפן ברירת מחדל
+        // Unknown route – redirect to default
         if (!route) {
             SPA.navigateTo('login');
             return;
         }
 
-        // אם כבר באותו route אין צורך ברינדור חוזר
+        // Already on the same route – no re-render needed
         if (currentRoute === hash) return;
 
-        // בדיקת guard לפני רינדור ה-template
-        // guard זה בעצם "שומר סף" שממוש על יד פונקציה שמחזירה true/false לפי תנאי הרשאה (למשל: האם המשתמש מחובר)    
+        // Check the guard before rendering the template.
+        // A guard is a "gatekeeper" function that returns true/false
+        // based on an authorisation condition (e.g. is the user logged in?).
         if (typeof route.guard === 'function' && !route.guard()) {
             if (typeof route.onGuardFail === 'function') route.onGuardFail();
-            return;  // currentRoute לא מתעדכן – נשמר הערך הקודם
+            return;  // currentRoute is not updated – keeps the previous value
         }
 
         currentRoute = hash;
 
-        // ניקוי תוכן קיים והוספת ה-template החדש
+        // Clear existing content and inject the new template
         container.innerHTML = '';
         const content = _loadTemplate(route.templateId);
         if (content) container.appendChild(content);
 
-        // הפעלת קוד אתחול הדף (event listeners, טעינת נתונים, וכו')
+        // Run page initialisation code (event listeners, data loading, etc.)
         if (typeof route.onEnter === 'function') route.onEnter();
     }
 
-    /* ─── ממשק ציבורי ─── */
+    /* ─── Public interface ─── */
     return {
 
         /**
-         * addRoute – מוסיף הגדרת route למנגנון הניתוב.
+         * addRoute – registers a route definition with the router.
          */
         addRoute(hash, templateId, onEnter, guard, onGuardFail) {
             routes[hash] = { templateId, onEnter, guard, onGuardFail };
         },
 
         /**
-         * navigateTo – מנווט לדף על-ידי שינוי ה-hash ב-URL.
+         * navigateTo – navigates to a page by updating the hash in the URL.
          */
         navigateTo(hash) {
             window.location.hash = hash;
         },
 
         /**
-         * init – מאתחל את מנגנון הניתוב.
-         * מאזין לאירוע hashchange ומבצע ניתוב ראשוני לפי ה-URL הנוכחי.
+         * init – initialises the router.
+         * Listens for the hashchange event and performs the initial routing
+         * based on the current URL.
          */
         init() {
             window.addEventListener('hashchange', _navigate);
@@ -92,16 +94,15 @@ const SPA = (() => {
         },
 
         /**
-         * getCurrentRoute – מחזיר את ה-hash של ה-route הפעיל כרגע.
-         * @returns {string|null}
+         * getCurrentRoute – returns the hash of the currently active route.
          */
         getCurrentRoute() {
             return currentRoute;
         },
 
         /**
-         * resetRoute – מאפס את ה-currentRoute כדי לאפשר רינדור חוזר של אותו דף.
-         * שימושי למשל אחרי התנתקות וכניסה מחדש.
+         * resetRoute – resets currentRoute to allow re-rendering of the same page.
+         * Useful e.g. after logout followed by login.
          */
         resetRoute() {
             currentRoute = null;

@@ -1,35 +1,35 @@
 /**
- * fajax.js – מחלקת FXMLHttpRequest
+ * fajax.js – FXMLHttpRequest class
  * ===================================
- * מדמה את המחלקה המובנית XMLHttpRequest של הדפדפן.
- * במקום לשלוח בקשות HTTP אמיתיות, מעבירה את הבקשה
- * לרשת התקשורת המדומה (Network) אשר מנתבת אותה לשרת המתאים.
+ * Simulates the browser's built-in XMLHttpRequest class.
+ * Instead of sending real HTTP requests, it forwards the request
+ * to the simulated network (Network) which routes it to the appropriate server.
  *
- * שימוש:
+ * Usage:
  *   const xhr = new FXMLHttpRequest();
  *   xhr.open('POST', '/auth/login');
  *   xhr.setRequestHeader('Content-Type', 'application/json');
- *   xhr.onload  = () => { ... };   // נקרא כשמגיעה תגובה (כל status)
- *   xhr.onerror = () => { ... };   // נקרא כשהרשת "מפילה" את ההודעה
+ *   xhr.onload  = () => { ... };   // called when a response arrives (any status)
+ *   xhr.onerror = () => { ... };   // called when the network "drops" the message
  *   xhr.send(JSON.stringify({ username, password }));
  */
 class FXMLHttpRequest {
 
-    /* בנאי – מאתחל את כל השדות לערכי ברירת מחדל */
+    /* Constructor – initialises all fields to default values */
     constructor() {
-        this.method       = null;   // מתודת HTTP (GET / POST / PUT / DELETE)
-        this.url          = null;   // כתובת היעד
-        this.data         = null;   // גוף הבקשה (string JSON)
-        this.status       = null;   // קוד תגובה HTTP שהתקבל מהשרת
-        this.responseText = null;  // גוף התגובה כ-string JSON
-        this.onload       = null;   // callback – נקרא כשמתקבלת תגובה מהשרת
-        this.onerror      = null;   // callback – נקרא כשהרשת מפילה את ההודעה
-        this._headers     = {};     // כותרות הבקשה (Authorization, Content-Type, ...)
+        this.method       = null;   // HTTP method (GET / POST / PUT / DELETE)
+        this.url          = null;   // target URL
+        this.data         = null;   // request body (JSON string)
+        this.status       = null;   // HTTP response code received from the server
+        this.responseText = null;  // response body as a JSON string
+        this.onload       = null;   // callback – called when a response is received from the server
+        this.onerror      = null;   // callback – called when the network drops the message
+        this._headers     = {};     // request headers (Authorization, Content-Type, ...)
     }
 
     /**
-     * open – מגדיר את מתודת ה-HTTP וכתובת היעד של הבקשה.
-     * חייב להיקרא לפני send.
+     * open – sets the HTTP method and target URL for the request.
+     * Must be called before send.
      */
     open(method, url) {
         this.method = method.toUpperCase();
@@ -37,43 +37,44 @@ class FXMLHttpRequest {
     }
 
     /**
-     * setRequestHeader – מוסיף כותרת לבקשה (למשל Authorization, Content-Type).
-     * חייב להיקרא לאחר open ולפני send.
+     * setRequestHeader – adds a header to the request (e.g. Authorization, Content-Type).
+     * Must be called after open and before send.
      */
     setRequestHeader(key, value) {
         this._headers[key] = value;
     }
 
     /**
-     * send – שולח את הבקשה לרשת התקשורת המדומה.
-     * אחרי קריאה זו הבקשה "עוזבת" את הלקוח; התגובה תגיע דרך onload / onerror.
+     * send – forwards the request to the simulated network.
+     * After this call the request has "left" the client; the response will
+     * arrive via onload / onerror.
      */
     send(data = null) {
         if (data !== null) {
             this.data = data;
         }
-        // מעביר את האובייקט כולו לרשת; הרשת תדאג לניתוב, השהיה והשמטה
+        // Passes the entire object to the network; the network handles routing, delay and drop
         Network.transmit(this);
     }
 
     /**
-     * _handleResponse – מטופל על-ידי הרשת כשהתגובה מגיעה מהשרת.
-     * מעדכן status ו-responseText ומפעיל את callback המתאים.
-     * (מתודה פנימית – אין לקרוא לה ישירות מקוד לקוח)
+     * _handleResponse – called by the network when the response arrives from the server.
+     * Updates status and responseText then fires the appropriate callback.
+     * (Internal method – do not call directly from client code)
      */
     _handleResponse(responseObj) {
         this.status       = responseObj.status;
         this.responseText = JSON.stringify(responseObj.body);
-        // onload נקרא תמיד כשיש תגובה – הלקוח בודק את this.status בעצמו
+        // onload is always called when a response exists – the client checks this.status itself
         if (typeof this.onload === 'function') {
             this.onload();
         }
     }
 
     /**
-     * _handleNetworkError – מטופל על-ידי הרשת כשהמסגרת "נופלת" (השמטה).
-     * מאפס את status ומפעיל את onerror.
-     * (מתודה פנימית – אין לקרוא לה ישירות מקוד לקוח)
+     * _handleNetworkError – called by the network when the frame is "dropped".
+     * Resets status and fires onerror.
+     * (Internal method – do not call directly from client code)
      */
     _handleNetworkError() {
         this.status       = 0;

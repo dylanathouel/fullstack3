@@ -1,30 +1,29 @@
 /**
- * meetings-db.js – מאגר נתוני פגישות (DB API)
+ * meetings-db.js – meeting data store (DB API)
  * ===============================================
- * מספק פעולות CRUD על פגישות השמורות ב-LocalStorage.
+ * Provides CRUD operations on meetings stored in LocalStorage.
  *
- * חשוב: פניות למאגר זה מבוצעות רק מקוד שרת (DataServer).
- * קוד לקוח לא יפנה ישירות לאובייקט זה.
+ * Important: calls to this store are made only from server code (DataServer).
+ * Client code must not access this object directly.
  *
- * מבנה רשומת פגישה:
+ * Meeting record structure:
  * {
- *   id:           string,   // מזהה ייחודי
- *   userId:       string,   // ID של המשתמש הבעלים
- *   title:        string,   // נושא הפגישה (חובה)
- *   date:         string,   // תאריך בפורמט YYYY-MM-DD (חובה)
- *   time:         string,   // שעה בפורמט HH:MM (חובה)
- *   location:     string,   // מיקום (אופציונלי)
- *   participants: string,   // משתתפים – מחרוזת חופשית (אופציונלי)
+ *   id:           string,   // unique identifier
+ *   userId:       string,   // ID of the owning user
+ *   title:        string,   // meeting subject (required)
+ *   date:         string,   // date in YYYY-MM-DD format (required)
+ *   time:         string,   // time in HH:MM format (required)
+ *   location:     string,   // location (optional)
+ *   participants: string,   // participants – free-form string (optional)
  *   createdAt:    string    // ISO timestamp
  * }
  */
 const MeetingsDB = (() => {
 
-    const STORAGE_KEY = 'meetings_app_data';   // מפתח ה-LocalStorage
+    const STORAGE_KEY = 'meetings_app_data';   // LocalStorage key
 
     /**
-     * _getAll – שולף את כל רשומות הפגישות מה-LocalStorage.
-     * @returns {Array}
+     * _getAll – retrieves all meeting records from LocalStorage.
      */
     function _getAll() {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -32,26 +31,25 @@ const MeetingsDB = (() => {
     }
 
     /**
-     * _saveAll – שומר מערך פגישות מעודכן ב-LocalStorage.
+     * _saveAll – saves an updated meetings array to LocalStorage.
      */
     function _saveAll(meetings) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(meetings));
     }
 
     /**
-     * _generateId – יוצר מזהה ייחודי לפגישה חדשה.
-     * @returns {string}
+     * _generateId – creates a unique identifier for a new meeting.
      */
     function _generateId() {
         return 'm_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
     }
 
-    /* ─── ממשק ציבורי (DB API) ─── */
+    /* ─── Public interface (DB API) ─── */
     return {
 
         /**
-         * init – מאתחל את המאגר עם נתוני seed אם הוא עדיין ריק.
-         * נקרא פעם אחת בטעינת האפליקציה.
+         * init – initialises the store with seed data if it is still empty.
+         * Called once at application startup.
          */
         init(seedMeetings = []) {
             if (!localStorage.getItem(STORAGE_KEY)) {
@@ -61,9 +59,8 @@ const MeetingsDB = (() => {
         },
 
         /**
-         * getAllByUser – שולף את כל הפגישות של משתמש מסוים,
-         * ממוינות לפי תאריך ושעה (עולה).
-         * @returns {Array}
+         * getAllByUser – retrieves all meetings belonging to a given user,
+         * sorted by date and time (ascending).
          */
         getAllByUser(userId) {
             return _getAll()
@@ -76,17 +73,15 @@ const MeetingsDB = (() => {
         },
 
         /**
-         * getById – שולף פגישה ספציפית לפי ID.
-         * @returns {object|null}
+         * getById – retrieves a specific meeting by ID.
          */
         getById(id) {
             return _getAll().find(m => m.id === id) || null;
         },
 
         /**
-         * search – מחפש פגישות של משתמש לפי מחרוזת חופשית.
-         * מחפש בשדות: נושא, מיקום, משתתפים.
-         * @returns {Array}
+         * search – searches a user's meetings using a free-text query.
+         * Searches across: title, location, participants.
          */
         search(userId, query) {
             const q = query.toLowerCase();
@@ -106,8 +101,7 @@ const MeetingsDB = (() => {
         },
 
         /**
-         * filterByDate – מחזיר פגישות של משתמש בתאריך מסוים.
-         * @returns {Array}
+         * filterByDate – returns a user's meetings on a specific date.
          */
         filterByDate(userId, date) {
             return _getAll()
@@ -116,15 +110,14 @@ const MeetingsDB = (() => {
         },
 
         /**
-         * add – מוסיף פגישה חדשה למאגר.
-         * @returns {object} הפגישה החדשה עם ה-ID שנוצר
+         * add – adds a new meeting to the store.
          */
         add(meetingData) {
             const meetings   = _getAll();
             const newMeeting = {
                 ...meetingData,
                 id:        _generateId(),
-                // תאריך יצירה אוטומטי בפורמט המתאים לזמן זולו (UTC)
+                // Auto-generated creation timestamp in UTC (Zulu time)
                 createdAt: new Date().toISOString()
             };
             meetings.push(newMeeting);
@@ -133,8 +126,7 @@ const MeetingsDB = (() => {
         },
 
         /**
-         * update – מעדכן שדות של פגישה קיימת לפי ID.
-         * @returns {object|null} הפגישה המעודכנת, או null אם לא נמצאה
+         * update – updates fields of an existing meeting by ID.
          */
         update(id, updates) {
             const meetings = _getAll();
@@ -150,8 +142,7 @@ const MeetingsDB = (() => {
         },
 
         /**
-         * delete – מוחק פגישה לפי ID.
-         * @returns {boolean}
+         * delete – deletes a meeting by ID.
          */
         delete(id) {
             const meetings = _getAll();

@@ -1,39 +1,38 @@
 /**
- * auth-server.js – שרת אימות משתמשים
+ * auth-server.js – user authentication server
  * ======================================
- * מטפל בכניסה (login) ורישום (register) של משתמשים.
- * עובד מול UsersDB דרך ה-DB API בלבד.
+ * Handles user login and registration.
+ * Communicates with UsersDB exclusively through the DB API.
  *
- * נקודות-קצה (Endpoints):
- *   POST /auth/login    – כניסת משתמש קיים
- *   POST /auth/register – רישום משתמש חדש
- *   POST /auth/logout   – התנתקות (ביטול טוקן)
+ * Endpoints:
+ *   POST /auth/login    – log in an existing user
+ *   POST /auth/register – register a new user
+ *   POST /auth/logout   – log out (invalidate token)
  *
- * אימות מבוסס-טוקן:
- *   אחרי כניסה/רישום מוצלחים נוצר טוקן session ייחודי.
- *   הטוקן נשמר בזיכרון (activeSessions) ומוחזר ללקוח.
- *   DataServer משתמש ב-AuthServer.validateToken כדי לאמת בקשות.
+ * Token-based authentication:
+ *   After a successful login/register a unique session token is created.
+ *   The token is stored in memory (activeSessions) and returned to the client.
+ *   DataServer uses AuthServer.validateToken to authenticate incoming requests.
  */
 const AuthServer = (() => {
 
     /**
-     * activeSessions – מאגר טוקני session פעילים בזיכרון.
-     * מבנה: { [token]: userId }
-     * מאופס בכל רענון דף (כנדרש במערכת הדמיה).
+     * activeSessions – in-memory store of active session tokens.
+     * Structure: { [token]: userId }
+     * Reset on every page refresh (as required in the simulation).
      */
     const activeSessions = {};
 
     /**
-     * _generateToken – מייצר טוקן session ייחודי.
-     * @returns {string}
+     * _generateToken – generates a unique session token.
+
      */
     function _generateToken() {
         return 'tok_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
     }
 
     /**
-     * _authenticate – בודק שם משתמש וסיסמה מול UsersDB.
-     * @returns {object|null} אובייקט המשתמש אם תקין, null אחרת
+     * _authenticate – validates a username and password against UsersDB.
      */
     function _authenticate(username, password) {
         const user = UsersDB.getByUsername(username);
@@ -42,8 +41,7 @@ const AuthServer = (() => {
     }
 
     /**
-     * _validateRegistration – בודק תקינות נתוני רישום.
-     * @returns {{ valid: boolean, message?: string }}
+     * _validateRegistration – validates registration data.
      */
     function _validateRegistration(data) {
         if (!data.username || data.username.trim().length < 3)
@@ -60,8 +58,9 @@ const AuthServer = (() => {
     }
 
     /**
-     * _handleLogin – מטפל ב-POST /auth/login.
-     * מאמת פרטים, יוצר טוקן ומחזיר אותו יחד עם פרטי המשתמש (ללא סיסמה).
+     * _handleLogin – handles POST /auth/login.
+     * Validates credentials, creates a token and returns it together with
+     * the user details (password excluded).
      */
     function _handleLogin(fxhr, sendResponse) {
         const body = JSON.parse(fxhr.data || '{}');
@@ -80,14 +79,14 @@ const AuthServer = (() => {
         const token = _generateToken();
         activeSessions[token] = user.id;
 
-        // מחזיר את פרטי המשתמש ללא שדה הסיסמה
+        // Return user details without the password field
         const { password: _p, ...safeUser } = user;
         sendResponse(fxhr, { status: 200, body: { token, user: safeUser } });
     }
 
     /**
-     * _handleRegister – מטפל ב-POST /auth/register.
-     * מאמת נתונים, יוצר משתמש חדש, יוצר טוקן ומחזיר אותו.
+     * _handleRegister – handles POST /auth/register.
+     * Validates data, creates a new user, creates a token and returns it.
      */
     function _handleRegister(fxhr, sendResponse) {
         const body       = JSON.parse(fxhr.data || '{}');
@@ -112,50 +111,49 @@ const AuthServer = (() => {
     }
 
     /**
-     * _handleLogout – מטפל ב-POST /auth/logout.
-     * מוחק את הטוקן מ-activeSessions.
+     * _handleLogout – handles POST /auth/logout.
+     * Removes the token from activeSessions.
      */
     function _handleLogout(fxhr, sendResponse) {
         const token = fxhr._headers['Authorization'];
         if (token && activeSessions[token]) {
-            // מחק את המאפיין הטוקן כדי לבטל את ה-session
+            // Delete the token property to invalidate the session
             delete activeSessions[token];
         }
         sendResponse(fxhr, { status: 200, body: { message: 'התנתקת בהצלחה' } });
     }
 
-    /* ─── ממשק ציבורי ─── */
+    /* ─── Public interface ─── */
     return {
 
         /**
-         * register – רושם את השרת ברשת התקשורת תחת prefix '/auth'.
+         * register – registers the server on the network under the '/auth' prefix.
          */
         register() {
             Network.register('/auth', this);
         },
 
         /**
-         * validateToken – בודק אם טוקן קיים ותקף.
-         * משמש את DataServer לאימות כל בקשה נכנסת.
-         * @returns {string|null} userId אם הטוקן תקף, null אחרת
+         * validateToken – checks whether a token exists and is valid.
+         * Used by DataServer to authenticate every incoming request.
          */
         validateToken(token) {
             return activeSessions[token] || null;
         },
 
         /**
-         * restoreSession – משחזר session קיים לאחר רענון דף.
-         * נקרא על-ידי App כאשר נמצא טוקן תקף ב-sessionStorage.
-         * ללא קריאה זו, activeSessions יהיה ריק אחרי רענון ו-validateToken
-         * יחזיר null למרות שהטוקן עדיין שמור בדפדפן.
+         * restoreSession – restores an existing session after a page refresh.
+         * Called by App when a valid token is found in sessionStorage.
+         * Without this call, activeSessions would be empty after a refresh and
+         * validateToken would return null even though the token is still in the browser.
          */
         restoreSession(token, userId) {
             activeSessions[token] = userId;
         },
 
         /**
-         * handleRequest – נקודת הכניסה הראשית של השרת.
-         * מנתב בקשות נכנסות (מה-Network) לפונקציית הטיפול המתאימה.
+         * handleRequest – main entry point for the server.
+         * Routes incoming requests (from Network) to the appropriate handler function.
          */
         handleRequest(fxhr, sendResponse) {
             const { url, method } = fxhr;

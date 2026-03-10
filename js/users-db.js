@@ -1,27 +1,26 @@
 /**
- * users-db.js – מאגר נתוני משתמשים (DB API)
+ * users-db.js – user data store (DB API)
  * =============================================
- * מספק פעולות CRUD על נתוני משתמשים השמורים ב-LocalStorage.
+ * Provides CRUD operations on user data stored in LocalStorage.
  *
- * חשוב: פניות למאגר זה מבוצעות רק מקוד שרת (AuthServer).
- * קוד לקוח לא יפנה ישירות לאובייקט זה.
+ * Important: calls to this store are made only from server code (AuthServer).
+ * Client code must not access this object directly.
  *
- * מבנה רשומת משתמש:
+ * User record structure:
  * {
- *   id:        string,   // מזהה ייחודי
- *   username:  string,   // שם משתמש (ייחודי)
- *   email:     string,   // כתובת אימייל
- *   password:  string,   // סיסמה (טקסט גולמי – לצרכי הדמיה בלבד)
+ *   id:        string,   // unique identifier
+ *   username:  string,   // username (unique)
+ *   email:     string,   // email address
+ *   password:  string,   // password (plain text – for simulation purposes only)
  *   createdAt: string    // ISO timestamp
  * }
  */
 const UsersDB = (() => {
 
-    const STORAGE_KEY = 'meetings_app_users';  // מפתח ה-LocalStorage
+    const STORAGE_KEY = 'meetings_app_users';  // LocalStorage key
 
     /**
-     * _getAll – שולף את כל רשומות המשתמשים מה-LocalStorage.
-     * @returns {Array} מערך משתמשים
+     * _getAll – retrieves all user records from LocalStorage.
      */
     function _getAll() {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -29,26 +28,25 @@ const UsersDB = (() => {
     }
 
     /**
-     * _saveAll – שומר מערך משתמשים מעודכן ב-LocalStorage.
+     * _saveAll – saves an updated users array to LocalStorage.
      */
     function _saveAll(users) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
     }
 
     /**
-     * _generateId – יוצר מזהה ייחודי למשתמש חדש.
-     * @returns {string}
+     * _generateId – creates a unique identifier for a new user.
      */
     function _generateId() {
         return 'u_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
     }
 
-    /* ─── ממשק ציבורי (DB API) ─── */
+    /* ─── Public interface (DB API) ─── */
     return {
 
         /**
-         * init – מאתחל את המאגר עם נתוני seed אם הוא עדיין ריק.
-         * נקרא פעם אחת בטעינת האפליקציה.
+         * init – initialises the store with seed data if it is still empty.
+         * Called once at application startup.
          */
         init(seedUsers = []) {
             if (!localStorage.getItem(STORAGE_KEY)) {
@@ -58,33 +56,29 @@ const UsersDB = (() => {
         },
 
         /**
-         * getById – שולף משתמש לפי ID.
-         * @returns {object|null}
+         * getById – retrieves a user by ID.
          */
         getById(id) {
             return _getAll().find(u => u.id === id) || null;
         },
 
         /**
-         * getByUsername – שולף משתמש לפי שם משתמש (case-sensitive).
-         * @returns {object|null}
+         * getByUsername – retrieves a user by username (case-sensitive).
          */
         getByUsername(username) {
             return _getAll().find(u => u.username === username) || null;
         },
 
         /**
-         * usernameExists – בודק אם שם משתמש כבר תפוס.
-         * @returns {boolean}
+         * usernameExists – checks whether a username is already taken.
          */
         usernameExists(username) {
             return _getAll().some(u => u.username === username);
         },
 
         /**
-         * add – מוסיף משתמש חדש למאגר.
-         * מוסיף שדות id ו-createdAt אוטומטית.
-         * @returns {object} המשתמש החדש עם ה-ID שנוצר
+         * add – adds a new user to the store.
+         * Automatically adds the id and createdAt fields.
          */
         add(userData) {
             const users   = _getAll();
@@ -99,8 +93,7 @@ const UsersDB = (() => {
         },
 
         /**
-         * update – מעדכן שדות של משתמש קיים לפי ID.
-         * @returns {object|null} המשתמש המעודכן, או null אם לא נמצא
+         * update – updates fields of an existing user by ID.
          */
         update(id, updates) {
             const users = _getAll();
@@ -112,8 +105,7 @@ const UsersDB = (() => {
         },
 
         /**
-         * delete – מוחק משתמש לפי ID.
-         * @returns {boolean} true אם נמחק, false אם לא נמצא
+         * delete – deletes a user by ID.
          */
         delete(id) {
             const users = _getAll();
